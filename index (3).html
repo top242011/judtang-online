@@ -173,6 +173,22 @@ const ROOMS = 'jadtang_rooms';
 /* ---------- helpers ---------- */
 const clamp=(v,min=0,max=100)=>Math.max(min,Math.min(max,v));
 const fmt=n=>Math.round(n).toLocaleString('en-US');
+function computeDeficitCrisis(treasury,deficitStreak,national){
+  if(treasury<0){
+    const streak=deficitStreak+1;
+    const trustPenalty=clamp(3+streak*2,0,20);
+    const unrestPenalty=clamp(2+streak*1.5,0,15);
+    return {
+      deficitStreak:streak,
+      national:{
+        economy:national.economy,
+        trust:clamp(national.trust-trustPenalty),
+        unrest:clamp(national.unrest+unrestPenalty),
+      },
+    };
+  }
+  return {deficitStreak:0,national:{...national}};
+}
 function genRoomCode(){
   const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let s=''; for(let i=0;i<4;i++) s+=chars[Math.floor(Math.random()*chars.length)];
