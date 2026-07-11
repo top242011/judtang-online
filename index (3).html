@@ -946,6 +946,12 @@ function confirmCoalition(){
   stampAndThen('ลงนามแล้ว',()=>{ roomRef().update({phase:'cabinet',coalitionSlots,coalitionParties,cabinet:{}}); });
 }
 
+function nextPmCandidate(r){
+  const concededPm=r.concededPm||[];
+  const ranked=[...r.lastElection.results].sort((a,b)=>b.seats-a.seats);
+  return ranked.find(x=>x.seats>0 && !concededPm.includes(x.id)) || null;
+}
+
 function assignMinistry(ministryId,partyId){
   const cabinet={...ui.room.cabinet};
   if(!partyId) delete cabinet[ministryId]; else cabinet[ministryId]=partyId;
