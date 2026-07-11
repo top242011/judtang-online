@@ -647,7 +647,7 @@ PHASE_TEMPLATES.coalition=function(){
       </div>
     </div>`:''}
 
-    ${isPM?`<div class="btn-row"><button class="btn btn-stamp" ${ok?'':'disabled'} onclick="confirmCoalition()">ลงนามจัดตั้งรัฐบาล</button></div>`
+    ${isPM?`<div class="btn-row"><button class="btn btn-ghost-dark" onclick="concedePmCandidacy()">สละสิทธิ์เป็นแกนนำจัดตั้งรัฐบาล</button><button class="btn btn-stamp" ${ok?'':'disabled'} onclick="confirmCoalition()">ลงนามจัดตั้งรัฐบาล</button></div>`
       : (!pmSlot.claimedBy?`<div class="waiting-box">AI กำลังเจรจาจัดตั้งรัฐบาล...</div>`:`<div class="waiting-box">รอพรรคแกนนำสรุปรัฐบาลผสม...</div>`)}
   </div>
   `;
@@ -950,6 +950,19 @@ function nextPmCandidate(r){
   const concededPm=r.concededPm||[];
   const ranked=[...r.lastElection.results].sort((a,b)=>b.seats-a.seats);
   return ranked.find(x=>x.seats>0 && !concededPm.includes(x.id)) || null;
+}
+function restartElectionSameTerm(){
+  const r=ui.room;
+  const slots=r.slots.map(s=>({...s,submitted:false,budget:{north:0,isaan:0,central:0,bangkok:0,south:0}}));
+  roomRef().update({phase:'campaign',slots,electionLock:false,concededPm:[],pm:null,coalitionSlots:[],invitations:{},cabinet:{}});
+}
+function concedePmCandidacy(){
+  const r=ui.room;
+  const concededPm=[...(r.concededPm||[]),r.pm];
+  const nextR={...r,concededPm};
+  const next=nextPmCandidate(nextR);
+  if(!next){ restartElectionSameTerm(); return; }
+  roomRef().update({pm:next.id,concededPm,invitations:{},coalitionSlots:[],cabinet:{}});
 }
 
 function assignMinistry(ministryId,partyId){
