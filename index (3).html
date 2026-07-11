@@ -367,6 +367,7 @@ function subscribeRoom(code){
     ui.room=snap.data();
     if(ui.screen!=='game') ui.screen='game';
     render();
+    maybeRunElection();
     runHostAutomation();
   });
   ui.roomCode=code;
@@ -1209,8 +1210,6 @@ function releaseAutomation(){
 function runHostAutomation(){
   if(!isHost()||automationBusy||!ui.room) return;
   const r=ui.room;
-
-  if(r.phase==='campaign'){ maybeRunElection(); return; }
 
   if(r.phase==='coalition' && !r.slots.find(s=>s.id===r.pm).claimedBy){
     const already = Object.keys(r.invitations||{}).length>0 || (r.coalitionSlots&&r.coalitionSlots.length>0);
