@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>จัดตั้ง ออนไลน์ — เกมจำลองการเมืองไทยหลายผู้เล่น</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@500;600;700&family=Sarabun:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<style>
+:root{
+  --navy-deep:#0F1B33; --navy-mid:#1B2E52; --navy-line:#2C3F68;
+  --paper:#F1E9D2; --paper-dark:#E2D4A8; --paper-line:#C9B77E;
+  --ink:#241F14; --ink-soft:#5A5138;
+  --seal-red:#9C2B2B; --seal-red-dark:#7A1F1F;
+  --gold:#BD9A3F; --gold-bright:#D8B85E;
+  --muted-on-navy:#9FB0C9; --good:#3F7A4F; --bad:#9C2B2B;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{background:var(--navy-deep);background-image:radial-gradient(ellipse at top left, rgba(189,154,63,0.06), transparent 60%),radial-gradient(ellipse at bottom right, rgba(156,43,43,0.05), transparent 55%);color:var(--paper);font-family:'Sarabun',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased;}
+h1,h2,h3,.serif{font-family:'Noto Serif Thai',serif;}
+.mono{font-family:'JetBrains Mono',monospace;}
+button{font-family:'Sarabun',sans-serif;cursor:pointer;}
+button:focus-visible, input:focus-visible, select:focus-visible{outline:3px solid var(--gold-bright);outline-offset:2px;}
+::selection{background:var(--gold);color:var(--navy-deep);}
+.app-shell{max-width:1180px;margin:0 auto;padding:18px 16px 60px;}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 20px;background:var(--navy-mid);border:1px solid var(--navy-line);border-radius:6px;flex-wrap:wrap;}
+.brand{display:flex;align-items:center;gap:12px;}
+.brand .emblem{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Noto Serif Thai',serif;font-weight:700;font-size:20px;color:var(--navy-deep);border:2px solid var(--gold);flex-shrink:0;}
+.brand .names h1{font-size:16px;margin:0;letter-spacing:.02em;}
+.brand .names .sub{font-size:12px;color:var(--muted-on-navy);margin-top:2px;}
+.topbar .stats{display:flex;gap:18px;flex-wrap:wrap;align-items:center;}
+.topbar .stat{text-align:right;}
+.topbar .stat .label{font-size:10.5px;color:var(--muted-on-navy);text-transform:uppercase;letter-spacing:.06em;}
+.topbar .stat .value{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600;color:var(--paper);}
+.room-pill{background:var(--navy-deep);border:1px solid var(--navy-line);border-radius:20px;padding:5px 14px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--gold-bright);}
+.breadcrumb{display:flex;gap:0;margin:14px 0 20px;border-bottom:1px solid var(--navy-line);flex-wrap:wrap;}
+.breadcrumb .step{padding:9px 16px;font-size:13px;color:var(--muted-on-navy);border-bottom:2px solid transparent;white-space:nowrap;}
+.breadcrumb .step.active{color:var(--gold-bright);border-bottom-color:var(--gold-bright);font-weight:600;}
+.breadcrumb .step.done{color:var(--paper);}
+.doc{background:var(--paper);color:var(--ink);border-radius:4px;padding:22px 24px;margin-bottom:16px;box-shadow:0 6px 18px rgba(0,0,0,0.28);border:1px solid var(--paper-line);position:relative;}
+.doc::before{content:"";position:absolute;top:0;left:0;right:0;height:5px;background:linear-gradient(90deg,var(--seal-red),var(--gold));border-radius:4px 4px 0 0;}
+.doc h2{font-size:19px;margin:2px 0 4px;color:var(--ink);}
+.doc .doc-sub{font-size:12.5px;color:var(--ink-soft);margin-bottom:16px;}
+.doc-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media (max-width:760px){.doc-grid{grid-template-columns:1fr;}}
+.panel-dark{background:var(--navy-mid);border:1px solid var(--navy-line);border-radius:6px;padding:18px 20px;margin-bottom:16px;}
+.panel-dark h2,.panel-dark h3{color:var(--paper);}
+.ledger{width:100%;border-collapse:collapse;font-size:13.5px;}
+.ledger th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);border-bottom:1.5px solid var(--paper-line);padding:6px 8px;}
+.ledger td{padding:9px 8px;border-bottom:1px solid rgba(0,0,0,0.08);vertical-align:middle;}
+.ledger tr:last-child td{border-bottom:none;}
+.region-name{font-weight:600;}
+.region-tags{font-size:11px;color:var(--ink-soft);display:block;margin-top:2px;}
+.stepper{display:flex;align-items:center;gap:6px;}
+.stepper button{width:26px;height:26px;border-radius:50%;border:1px solid var(--ink-soft);background:transparent;color:var(--ink);font-size:15px;line-height:1;}
+.stepper button:hover{background:rgba(0,0,0,0.06);}
+.stepper .amt{font-family:'JetBrains Mono',monospace;min-width:34px;text-align:center;font-weight:600;}
+.axis{margin-bottom:16px;}
+.axis-labels{display:flex;justify-content:space-between;font-size:11.5px;color:var(--ink-soft);margin-bottom:4px;}
+.axis input[type=range]{width:100%;accent-color:var(--seal-red);}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 20px;border-radius:3px;border:1px solid transparent;font-size:14.5px;font-weight:600;letter-spacing:.01em;transition:transform .08s ease;}
+.btn:active{transform:scale(0.97);}
+.btn-stamp{background:var(--seal-red);color:#F6E9DE;border-color:var(--seal-red-dark);}
+.btn-stamp:hover{background:var(--seal-red-dark);}
+.btn-stamp:disabled{background:#8a8a82;border-color:#8a8a82;cursor:not-allowed;opacity:.6;}
+.btn-ghost{background:transparent;color:var(--paper);border-color:var(--navy-line);}
+.btn-ghost:hover{background:var(--navy-line);}
+.btn-ghost-dark{background:transparent;color:var(--ink);border-color:var(--ink-soft);}
+.btn-ghost-dark:hover{background:rgba(0,0,0,0.06);}
+.btn-row{display:flex;gap:10px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap;}
+.btn-row.left{justify-content:flex-start;}
+.seat-chart-wrap{text-align:center;}
+.seat-chart{width:100%;max-width:560px;height:auto;}
+.majority-line{font-size:13px;text-align:center;margin-top:2px;}
+.legend{display:flex;flex-wrap:wrap;gap:10px 16px;justify-content:center;margin-top:10px;font-size:12.5px;}
+.legend .item{display:flex;align-items:center;gap:6px;}
+.swatch{width:11px;height:11px;border-radius:50%;display:inline-block;flex-shrink:0;}
+.party-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--paper-line);border-radius:4px;margin-bottom:8px;background:rgba(255,255,255,0.25);}
+.party-row.selected{background:rgba(156,43,43,0.08);border-color:var(--seal-red);}
+.party-row.mine{outline:2px solid var(--gold);}
+.party-row .dot{width:16px;height:16px;border-radius:50%;flex-shrink:0;}
+.party-row .info{flex:1;min-width:0;}
+.party-row .info .pname{font-weight:600;font-size:14px;}
+.party-row .info .pmeta{font-size:11.5px;color:var(--ink-soft);}
+.tag{display:inline-block;padding:1px 7px;border-radius:20px;font-size:10.5px;font-weight:600;margin-left:6px;}
+.tag.close{background:#D9E9DC;color:var(--good);}
+.tag.medium{background:#F1E4C4;color:#8A6A1E;}
+.tag.far{background:#F1DADA;color:var(--bad);}
+.tag.ai{background:#E4E0D2;color:var(--ink-soft);}
+.tag.human{background:#DCE6F1;color:#2E5A8B;}
+.tag.pending{background:#F1E4C4;color:#8A6A1E;}
+.tag.accepted{background:#D9E9DC;color:var(--good);}
+.tag.declined{background:#F1DADA;color:var(--bad);}
+.ministry-row{display:flex;align-items:center;gap:12px;padding:9px 4px;border-bottom:1px solid rgba(0,0,0,0.08);}
+.ministry-row .mname{flex:1;font-size:13.5px;font-weight:600;}
+.ministry-row .stars{color:var(--gold);font-size:12px;letter-spacing:1px;}
+.ministry-row select{font-family:'Sarabun',sans-serif;padding:6px 8px;border-radius:3px;border:1px solid var(--ink-soft);background:#fff;color:var(--ink);font-size:13px;max-width:200px;}
+.gauge{margin-bottom:10px;}
+.gauge-top{display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;}
+.gauge-top .lbl{color:var(--muted-on-navy);}
+.gauge-top .val{font-family:'JetBrains Mono',monospace;color:var(--paper);}
+.gauge-bar{height:8px;background:var(--navy-deep);border-radius:6px;overflow:hidden;border:1px solid var(--navy-line);}
+.gauge-fill{height:100%;border-radius:6px;transition:width .4s ease;}
+.gauge-fill.good{background:linear-gradient(90deg,#3F7A4F,#5FA06E);}
+.gauge-fill.warn{background:linear-gradient(90deg,#BD9A3F,#D8B85E);}
+.gauge-fill.bad{background:linear-gradient(90deg,#9C2B2B,#C24444);}
+.side-grid{display:grid;grid-template-columns:280px 1fr;gap:16px;}
+@media (max-width:820px){.side-grid{grid-template-columns:1fr;}}
+.event-card{position:relative;}
+.event-choice{display:block;width:100%;text-align:left;padding:12px 14px;margin-top:10px;border-radius:4px;border:1px solid var(--ink-soft);background:rgba(255,255,255,0.35);color:var(--ink);font-size:13.5px;}
+.event-choice:hover{background:rgba(156,43,43,0.08);border-color:var(--seal-red);}
+.event-choice .clabel{font-weight:600;display:block;margin-bottom:2px;}
+.event-choice .cdesc{font-size:12px;color:var(--ink-soft);}
+.result-box{background:rgba(0,0,0,0.05);border-left:3px solid var(--seal-red);padding:10px 14px;margin-top:14px;border-radius:0 3px 3px 0;font-size:13.5px;}
+.effect-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.efftag{font-family:'JetBrains Mono',monospace;font-size:11.5px;padding:2px 8px;border-radius:3px;}
+.efftag.pos{background:#D9E9DC;color:var(--good);}
+.efftag.neg{background:#F1DADA;color:var(--bad);}
+.waiting-box{text-align:center;padding:30px 10px;color:var(--ink-soft);font-size:13.5px;}
+.stamp-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:999;}
+.stamp-mark{font-family:'Noto Serif Thai',serif;font-weight:700;font-size:44px;color:var(--seal-red);border:5px solid var(--seal-red);border-radius:14px;padding:14px 34px;transform:scale(3) rotate(-14deg);opacity:0;animation:stampIn .55s cubic-bezier(.2,1.4,.4,1) forwards, stampOut .4s ease .75s forwards;background:rgba(241,233,210,0.9);}
+@keyframes stampIn{0%{transform:scale(3) rotate(-14deg);opacity:0;}55%{transform:scale(0.95) rotate(-11deg);opacity:1;}70%{transform:scale(1.05) rotate(-12deg);}100%{transform:scale(1) rotate(-12deg);opacity:1;}}
+@keyframes stampOut{to{opacity:0;}}
+@media (prefers-reduced-motion: reduce){.stamp-mark{animation:none;opacity:1;transform:scale(1) rotate(-12deg);}}
+.footer-note{text-align:center;font-size:11.5px;color:var(--muted-on-navy);margin-top:24px;}
+.color-swatches{display:flex;gap:8px;flex-wrap:wrap;}
+.color-swatches button{width:30px;height:30px;border-radius:50%;border:2px solid transparent;}
+.color-swatches button.picked{border-color:var(--ink);}
+.term-badge{display:inline-block;background:var(--navy-deep);color:var(--gold-bright);padding:3px 10px;border-radius:20px;font-size:11.5px;font-family:'JetBrains Mono',monospace;border:1px solid var(--navy-line);}
+.field{width:100%;padding:9px 10px;border:1px solid var(--ink-soft);border-radius:3px;font-family:'Sarabun',sans-serif;font-size:14px;}
+.code-display{font-family:'JetBrains Mono',monospace;font-size:34px;letter-spacing:.15em;text-align:center;color:var(--gold-bright);background:var(--navy-deep);border:1px dashed var(--navy-line);border-radius:6px;padding:14px;margin:14px 0;}
+.slot-card{border:1px solid var(--paper-line);border-radius:4px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.25);}
+.slot-card.taken{background:rgba(0,0,0,0.03);}
+.slot-card .dot{width:18px;height:18px;border-radius:50%;flex-shrink:0;}
+.slot-card .info{flex:1;}
+.slot-card .info .sname{font-weight:600;font-size:14px;}
+.slot-card .info .smeta{font-size:11.5px;color:var(--ink-soft);}
+.setup-note{max-width:640px;margin:40px auto;background:var(--navy-mid);border:1px solid var(--navy-line);border-radius:8px;padding:26px 28px;}
+.setup-note h2{color:var(--gold-bright);font-size:18px;margin-top:0;}
+.setup-note ol{font-size:13.5px;line-height:1.9;padding-left:20px;}
+.setup-note code{background:var(--navy-deep);padding:2px 6px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:12px;}
+.turn-badge{display:inline-block;background:var(--gold);color:var(--navy-deep);font-weight:700;font-size:11px;padding:3px 10px;border-radius:20px;margin-left:8px;}
+</style>
+</head>
+<body>
+<div class="app-shell" id="app"></div>
+
+<script>
+/* =========================================================
+   จัดตั้ง ออนไลน์ — เกมจำลองการเมืองไทยหลายผู้เล่น (Firebase)
+   ========================================================= */
+
+/* ---------- 1. FIREBASE CONFIG — วางค่าของคุณตรงนี้ ---------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyBtoUszWF3Fg1AsVOk7iekFeyPesfIooj8",
+  authDomain: "game-6f494.firebaseapp.com",
+  projectId: "game-6f494",
+  storageBucket: "game-6f494.firebasestorage.app",
+  messagingSenderId: "305489641119",
+  appId: "1:305489641119:web:712f8255f6f166249eecaa"
+};
+const FIREBASE_READY = firebaseConfig.apiKey !== "PASTE_API_KEY_HERE";
+let db=null;
+if(FIREBASE_READY){
+  firebase.initializeApp(firebaseConfig);
+  db=firebase.firestore();
+}
+const ROOMS = 'jadtang_rooms';
+
+/* ---------- helpers ---------- */
+const clamp=(v,min=0,max=100)=>Math.max(min,Math.min(max,v));
+const fmt=n=>Math.round(n).toLocaleString('en-US');
+function genRoomCode(){
+  const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s=''; for(let i=0;i<4;i++) s+=chars[Math.floor(Math.random()*chars.length)];
+  return s;
+}
+function getOrCreatePlayerId(){
+  let id=localStorage.getItem('jadtang_pid');
+  if(!id){ id='p_'+Math.random().toString(36).slice(2,10); localStorage.setItem('jadtang_pid',id); }
+  return id;
+}
+const MY_ID=getOrCreatePlayerId();
+
+/* ---------- game data ---------- */
+const REGIONS=[
+  {id:'north',name:'ภาคเหนือ',seats:70,leaning:{economy:-40,reform:20,security:-10}},
+  {id:'isaan',name:'ภาคอีสาน',seats:130,leaning:{economy:-60,reform:10,security:-20}},
+  {id:'central',name:'ภาคกลาง',seats:90,leaning:{economy:10,reform:-10,security:20}},
+  {id:'bangkok',name:'กรุงเทพมหานคร',seats:60,leaning:{economy:0,reform:60,security:-30}},
+  {id:'south',name:'ภาคใต้',seats:50,leaning:{economy:20,reform:-40,security:40}},
+];
+const TOTAL_SEATS=REGIONS.reduce((s,r)=>s+r.seats,0);
+const MAJORITY=Math.floor(TOTAL_SEATS/2)+1;
+
+const MINISTRIES=[
+  {id:'interior',name:'กระทรวงมหาดไทย',weight:3},
+  {id:'finance',name:'กระทรวงการคลัง',weight:3},
+  {id:'defense',name:'กระทรวงกลาโหม',weight:3},
+  {id:'foreign',name:'กระทรวงการต่างประเทศ',weight:2},
+  {id:'education',name:'กระทรวงศึกษาธิการ',weight:2},
+  {id:'health',name:'กระทรวงสาธารณสุข',weight:2},
+  {id:'agri',name:'กระทรวงเกษตรและสหกรณ์',weight:2},
+  {id:'commerce',name:'กระทรวงพาณิชย์',weight:2},
+  {id:'transport',name:'กระทรวงคมนาคม',weight:2},
+  {id:'energy',name:'กระทรวงพลังงาน',weight:2},
+  {id:'justice',name:'กระทรวงยุติธรรม',weight:1},
+  {id:'digital',name:'กระทรวงดิจิทัลเพื่อเศรษฐกิจและสังคม',weight:1},
+];
+const TOTAL_WEIGHT=MINISTRIES.reduce((s,m)=>s+m.weight,0);
+
+const PARTY_TEMPLATES=[
+  {name:'พรรคไทยรุ่งเรือง',color:'#8B6F2E',policy:{economy:40,reform:-70,security:60}},
+  {name:'พรรคประชาชนก้าวใหม่',color:'#2E8B74',policy:{economy:-20,reform:90,security:-50}},
+  {name:'พรรคชาวนาไทยเข้มแข็ง',color:'#3F6B2E',policy:{economy:-70,reform:10,security:0}},
+  {name:'พรรครวมพลังท้องถิ่น',color:'#6B2E4C',policy:{economy:20,reform:-30,security:30}},
+  {name:'พรรคเศรษฐกิจใหม่',color:'#2E5A8B',policy:{economy:80,reform:20,security:10}},
+  {name:'พรรคประชาธรรมใหม่',color:'#8B4A2E',policy:{economy:0,reform:40,security:20}},
+];
+
+const MINISTRY_EVENT_MAP={energy_crisis:'energy',pm25:'health',flood:'interior',fta:'commerce',edu:'education',crop:'agri',south:'defense',deficit:'finance',digital:'digital',transit:'transport',judicial:'justice',diplo:'foreign',noconf:null,corruption:null};
+
+const EVENTS=[
+  {id:'energy_crisis',title:'วิกฤตราคาพลังงาน',desc:'ราคาน้ำมันโลกพุ่งสูงต่อเนื่อง ประชาชนเรียกร้องให้รัฐบาลเข้าแทรกแซง ขณะที่กระทรวงพลังงานเตือนถึงภาระงบประมาณ',choices:[
+    {label:'ตรึงราคาน้ำมันด้วยงบอุดหนุน',desc:'ใช้งบประมาณเข้าช่วยเหลือ ลดผลกระทบต่อประชาชน',effect:{treasury:-15,trust:8,unrest:-5}},
+    {label:'ปล่อยราคาลอยตัวตามกลไกตลาด',desc:'รักษาวินัยการคลัง แต่ประชาชนเดือดร้อน',effect:{economy:8,trust:-8,unrest:10,regions:{isaan:-5,north:-5}}},
+  ]},
+  {id:'pm25',title:'วิกฤตฝุ่นควัน PM2.5 ภาคเหนือ',desc:'ค่าฝุ่นละอองในหลายจังหวัดภาคเหนือทะลุระดับอันตราย ภาคประชาสังคมเรียกร้องมาตรการเร่งด่วน',choices:[
+    {label:'สั่งการเข้มงวดควบคุมการเผาในที่โล่ง',desc:'ทุ่มทรัพยากรแก้ปัญหาที่ต้นเหตุ',effect:{treasury:-8,unrest:-5,regions:{north:10}}},
+    {label:'ปล่อยให้เป็นภารกิจของท้องถิ่น',desc:'ประหยัดงบส่วนกลาง แต่ปัญหายืดเยื้อ',effect:{trust:-5,regions:{north:-8}}},
+  ]},
+  {id:'noconf',title:'ญัตติอภิปรายไม่ไว้วางใจ',desc:'ฝ่ายค้านยื่นญัตติอภิปรายไม่ไว้วางใจ กล่าวหารัฐบาลบริหารงานผิดพลาดหลายประเด็น',choices:[
+    {label:'ชี้แจงข้อกล่าวหาอย่างละเอียดในสภา',desc:'ใช้เวลาและทรัพยากรเตรียมข้อมูล แลกกับความเชื่อมั่นของพรรคร่วม',effect:{treasury:-5,trust:5,satisfactionAll:10}},
+    {label:'ปัดตกข้อกล่าวหาโดยไม่ให้น้ำหนัก',desc:'ประหยัดเวลา แต่เสี่ยงเสียความเชื่อมั่น',effect:{trust:-10,unrest:5,satisfactionAll:-15}},
+  ]},
+  {id:'flood',title:'อุทกภัยภาคกลาง',desc:'ฝนตกหนักต่อเนื่องทำให้พื้นที่เกษตรกรรมภาคกลางถูกน้ำท่วมเป็นวงกว้าง',choices:[
+    {label:'อนุมัติงบฉุกเฉินเยียวยาเกษตรกร',desc:'ใช้งบก้อนใหญ่เร่งด่วน',effect:{treasury:-20,trust:5,regions:{central:12}}},
+    {label:'ใช้งบเดิมที่มีอยู่แบบจำกัด',desc:'ประหยัดงบ แต่การเยียวยาล่าช้า',effect:{treasury:-5,trust:-3,regions:{central:-8}}},
+  ]},
+  {id:'fta',title:'ข้อตกลงการค้าเสรีฉบับใหม่',desc:'มีข้อเสนอลงนามความตกลงการค้าเสรีฉบับใหม่กับกลุ่มประเทศคู่ค้าสำคัญ',choices:[
+    {label:'เดินหน้าลงนาม FTA',desc:'กระตุ้นเศรษฐกิจและการลงทุน แต่เกษตรกรบางกลุ่มไม่พอใจ',effect:{economy:10,regions:{bangkok:5,central:5,isaan:-6}}},
+    {label:'ชะลอการเจรจาไปก่อน',desc:'รอความพร้อมมากกว่านี้',effect:{economy:-3,trust:2}},
+  ]},
+  {id:'edu',title:'ข้อเสนอปฏิรูปการศึกษา',desc:'คณะทำงานด้านการศึกษาเสนอปฏิรูปหลักสูตรครั้งใหญ่ทั่วประเทศ',choices:[
+    {label:'ลงทุนปฏิรูปหลักสูตรครั้งใหญ่',desc:'ใช้งบสูง หวังผลระยะยาว',effect:{treasury:-18,trust:5,regions:{bangkok:6,central:4}}},
+    {label:'คงหลักสูตรเดิม ประหยัดงบ',desc:'รักษาเสถียรภาพงบประมาณ',effect:{trust:-3}},
+  ]},
+  {id:'crop',title:'ราคาพืชผลตกต่ำ',desc:'ราคาข้าวและพืชผลหลักตกต่ำต่อเนื่อง เกษตรกรภาคอีสานและภาคเหนือเดือดร้อนหนัก',choices:[
+    {label:'ประกันราคาพืชผลให้เกษตรกร',desc:'ใช้งบมหาศาลพยุงราคา',effect:{treasury:-22,economy:-4,regions:{isaan:12,north:8}}},
+    {label:'ปล่อยตามกลไกตลาด',desc:'รักษาวินัยการคลัง แต่เกษตรกรไม่พอใจ',effect:{economy:3,unrest:6,regions:{isaan:-10,north:-8}}},
+  ]},
+  {id:'south',title:'ความตึงเครียดชายแดนใต้',desc:'เหตุการณ์ความไม่สงบในพื้นที่ชายแดนภาคใต้ทวีความรุนแรง',choices:[
+    {label:'เพิ่มกำลังทหารและงบความมั่นคง',desc:'ตอบโต้ด้วยมาตรการเข้ม',effect:{treasury:-15,trust:3,unrest:-5,regions:{south:8}}},
+    {label:'เปิดโต๊ะเจรจาสันติภาพ',desc:'แนวทางสันติ แต่พรรคร่วมสายอนุรักษ์นิยมไม่พอใจ',effect:{treasury:-6,unrest:-8,satisfactionAll:-5,regions:{south:5}}},
+  ]},
+  {id:'deficit',title:'คำเตือนงบประมาณขาดดุล',desc:'กระทรวงการคลังเตือนว่างบประมาณแผ่นดินขาดดุลเกินกรอบวินัยการคลัง',choices:[
+    {label:'ตัดงบสวัสดิการลง',desc:'ฟื้นฟูฐานะการคลัง แต่กระทบประชาชนฐานราก',effect:{treasury:25,trust:-10,regions:{isaan:-6,north:-6}}},
+    {label:'กู้เงินเพิ่มเพื่อรักษาสวัสดิการ',desc:'รักษาความนิยม แต่เพิ่มภาระหนี้',effect:{treasury:-10,economy:-5,trust:5}},
+  ]},
+  {id:'digital',title:'ข้อเสนอรัฐบาลดิจิทัล',desc:'มีแผนเร่งลงทุนระบบราชการดิจิทัลเพื่อลดขั้นตอนและคอร์รัปชัน',choices:[
+    {label:'เร่งลงทุนระบบราชการดิจิทัล',desc:'ใช้งบสูง หวังผลระยะยาวด้านความโปร่งใส',effect:{treasury:-12,trust:6,regions:{bangkok:4}}},
+    {label:'ชะลอโครงการไปก่อน',desc:'ประหยัดงบ',effect:{trust:-2}},
+  ]},
+  {id:'transit',title:'ปัญหาจราจรและขนส่งมวลชนกรุงเทพฯ',desc:'ปัญหาจราจรติดขัดในกรุงเทพฯ ถูกวิจารณ์อย่างหนัก มีข้อเสนอขยายเส้นทางรถไฟฟ้า',choices:[
+    {label:'อนุมัติงบก่อสร้างรถไฟฟ้าสายใหม่',desc:'ลงทุนโครงสร้างพื้นฐานระยะยาว',effect:{treasury:-25,economy:3,regions:{bangkok:10}}},
+    {label:'เลื่อนโครงการออกไปก่อน',desc:'ประหยัดงบ แต่ประชาชนกรุงเทพฯ ผิดหวัง',effect:{regions:{bangkok:-6}}},
+  ]},
+  {id:'judicial',title:'เสียงวิจารณ์กระบวนการยุติธรรมล่าช้า',desc:'สื่อและภาคประชาสังคมวิจารณ์ความล่าช้าของกระบวนการยุติธรรมในหลายคดีสำคัญ',choices:[
+    {label:'ปฏิรูปกระบวนการยุติธรรมเร่งด่วน',desc:'สร้างความเชื่อมั่น แต่พรรคร่วมสายอนุรักษ์นิยมไม่สบายใจ',effect:{treasury:-10,trust:8,satisfactionAll:-5}},
+    {label:'ตั้งคณะทำงานศึกษาอย่างค่อยเป็นค่อยไป',desc:'แนวทางระมัดระวัง',effect:{trust:-2}},
+  ]},
+  {id:'diplo',title:'วิกฤตการทูตระหว่างประเทศ',desc:'เกิดกรณีพิพาททางการทูตกับประเทศคู่ค้าสำคัญ กระทรวงการต่างประเทศขอแนวทางจากรัฐบาล',choices:[
+    {label:'ยืนหยัดจุดยืนอย่างแข็งกร้าว',desc:'สร้างความนิยมในประเทศ แต่เพิ่มความตึงเครียด',effect:{unrest:4,trust:6,regions:{bangkok:3}}},
+    {label:'เจรจาประนีประนอม',desc:'รักษาความสัมพันธ์ทางเศรษฐกิจ',effect:{trust:-3,economy:4}},
+  ]},
+];
+
+function policyDistance(a,b){
+  const dx=(a.economy-b.economy)/100, dy=(a.reform-b.reform)/100, dz=(a.security-b.security)/100;
+  return Math.sqrt(dx*dx+dy*dy+dz*dz);
+}
+function distanceTag(d){
+  if(d<0.5) return {label:'ใกล้เคียง',cls:'close'};
+  if(d<1.0) return {label:'ปานกลาง',cls:'medium'};
+  return {label:'ห่างไกล',cls:'far'};
+}
+
+/* ---------- seat chart svg ---------- */
+function seatChartSVG(partyList,opts={}){
+  const width=opts.width||600, height=opts.height||300;
+  const cx=width/2, cy=height-14;
+  const rows=8, rMin=40, rMax=height-30;
+  const radii=[]; for(let i=0;i<rows;i++) radii.push(rMin+(rMax-rMin)*i/(rows-1));
+  const total=partyList.reduce((s,p)=>s+p.seats,0);
+  if(total<=0) return `<svg viewBox="0 0 ${width} ${height}" class="seat-chart"></svg>`;
+  const sumR=radii.reduce((a,b)=>a+b,0);
+  let rowSeats=radii.map(r=>Math.round(total*r/sumR));
+  let diff=total-rowSeats.reduce((a,b)=>a+b,0);
+  rowSeats[rowSeats.length-1]+=diff;
+  let positions=[];
+  radii.forEach((r,ri)=>{
+    const n=Math.max(0,rowSeats[ri]);
+    for(let j=0;j<n;j++){ const t=n===1?0.5:j/(n-1); positions.push({r,t}); }
+  });
+  positions.sort((a,b)=>a.t-b.t);
+  const sortedParties=[...partyList].sort((a,b)=>(a.economy??0)-(b.economy??0));
+  let colorSeq=[];
+  sortedParties.forEach(p=>{ for(let i=0;i<p.seats;i++) colorSeq.push(p.color); });
+  let dots=[];
+  positions.forEach((pos,idx)=>{
+    const angle=Math.PI*(0.06+0.88*pos.t);
+    const x=cx+pos.r*Math.cos(angle);
+    const y=cy-pos.r*Math.sin(angle);
+    const color=colorSeq[idx]||'#888';
+    dots.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5.2" fill="${color}"/>`);
+  });
+  return `<svg viewBox="0 0 ${width} ${height}" class="seat-chart">${dots.join('')}</svg>`;
+}
+
+function stampAndThen(text,cb){
+  const overlay=document.createElement('div');
+  overlay.className='stamp-overlay';
+  overlay.innerHTML=`<div class="stamp-mark">${text}</div>`;
+  document.body.appendChild(overlay);
+  setTimeout(()=>{ overlay.remove(); if(cb) cb(); },520);
+}
+
+/* ================= local UI state ================= */
+let ui={ screen:'home', roomCode:null, room:null, unsub:null, nameInput:localStorage.getItem('jadtang_pname')||'', joinInput:'', draft:null };
+
+function render(){
+  const app=document.getElementById('app');
+  app.innerHTML = SCREENS[ui.screen]();
+}
+
+/* ================= room helpers ================= */
+function mySlot(){
+  if(!ui.room) return null;
+  return ui.room.slots.find(s=>s.claimedBy===MY_ID)||null;
+}
+function isHost(){ return ui.room && ui.room.hostId===MY_ID; }
+function claimedSlots(){ return ui.room ? ui.room.slots.filter(s=>s.claimedBy) : []; }
+
+function subscribeRoom(code){
+  if(ui.unsub) ui.unsub();
+  ui.unsub = db.collection(ROOMS).doc(code).onSnapshot(snap=>{
+    if(!snap.exists){ ui.room=null; ui.screen='home'; render(); return; }
+    ui.room=snap.data();
+    if(ui.screen!=='game') ui.screen='game';
+    render();
+    runHostAutomation();
+  });
+  ui.roomCode=code;
+  localStorage.setItem('jadtang_last_room',code);
+}
+
+function roomRef(){ return db.collection(ROOMS).doc(ui.roomCode); }
+
+/* ================= SCREENS ================= */
+const SCREENS={};
+
+SCREENS.home=function(){
+  if(!FIREBASE_READY){
+    return `<div class="setup-note">
+      <div class="term-badge">ตั้งค่าครั้งแรก</div>
+      <h2 class="serif">เชื่อมต่อ Firebase ก่อนเริ่มเล่นออนไลน์</h2>
+      <p style="font-size:13.5px;line-height:1.8;">ไฟล์นี้ต้องเชื่อมกับฐานข้อมูลกลางฟรีชื่อ Firebase เพื่อให้ผู้เล่นหลายคนเห็นข้อมูลเดียวกันแบบเรียลไทม์ ทำตามขั้นตอนนี้ครั้งเดียว (ใช้เวลาประมาณ 5 นาที ไม่ต้องใช้บัตรเครดิต):</p>
+      <ol>
+        <li>ไปที่ <code>console.firebase.google.com</code> แล้วกด "Add project" ตั้งชื่ออะไรก็ได้ (ปิด Google Analytics ได้เพื่อความง่าย)</li>
+        <li>ในเมนูซ้าย ไปที่ <code>Build → Firestore Database</code> กด "Create database" เลือก "Start in test mode" แล้วเลือกตำแหน่งเซิร์ฟเวอร์ใกล้ที่สุด</li>
+        <li>ไปที่ไอคอนฟันเฟือง → <code>Project settings</code> เลื่อนลงไปที่ "Your apps" กดไอคอน <code>&lt;/&gt;</code> (Web) ตั้งชื่อแอปอะไรก็ได้ แล้วกด "Register app"</li>
+        <li>คัดลอกค่าในอ็อบเจกต์ <code>firebaseConfig</code> ที่ปรากฏขึ้น</li>
+        <li>เปิดไฟล์เกมนี้ด้วยโปรแกรมแก้ไขข้อความ ค้นหาคำว่า <code>PASTE_API_KEY_HERE</code> ใกล้ต้นไฟล์ แล้ววางค่าทั้ง 6 บรรทัดแทนที่ placeholder ทั้งหมด</li>
+        <li>บันทึกไฟล์ แล้วเปิดใหม่ในเบราว์เซอร์ — ส่งไฟล์เดียวกันนี้ให้เพื่อนทุกคนเปิดด้วย (หรืออัปโหลดขึ้นที่เก็บไฟล์แล้วแชร์ลิงก์)</li>
+      </ol>
+      <p style="font-size:12px;color:var(--muted-on-navy);">หมายเหตุ: โหมด "test mode" ของ Firestore จะเปิดอ่าน/เขียนแบบไม่ล็อกอินเป็นเวลา 30 วัน เหมาะกับการเล่นกับเพื่อนแบบไม่เป็นทางการ ถ้าจะใช้ระยะยาวควรตั้งกฎความปลอดภัยเพิ่มเติม</p>
+    </div>`;
+  }
+  return `
+  <div class="panel-dark" style="text-align:center;margin-top:24px;">
+    <div class="term-badge">เกมจำลองการเมืองไทย · ออนไลน์</div>
+    <h1 class="serif" style="font-size:30px;margin:10px 0 4px;">จัดตั้ง</h1>
+    <div style="color:var(--muted-on-navy);font-size:13.5px;max-width:520px;margin:0 auto;">สร้างห้องหรือเข้าร่วมห้องเพื่อนด้วยรหัส 4 หลัก แล้วบริหารพรรคการเมืองแข่งกันแบบเรียลไทม์</div>
+  </div>
+  <div class="doc" style="max-width:480px;margin:0 auto;">
+    <h2>เข้าสู่ระบบผู้เล่น</h2>
+    <label style="font-size:12.5px;font-weight:600;">ชื่อของคุณ (จะแสดงให้เพื่อนเห็น)</label>
+    <input id="nameInput" class="field" style="margin-top:6px;" value="${ui.nameInput}" placeholder="เช่น เอ็ม" oninput="ui.nameInput=this.value">
+
+    <div class="btn-row left" style="margin-top:20px;">
+      <button class="btn btn-stamp" onclick="handleCreateRoom()">+ สร้างห้องใหม่</button>
+    </div>
+
+    <div style="margin-top:22px;border-top:1px solid var(--paper-line);padding-top:16px;">
+      <label style="font-size:12.5px;font-weight:600;">มีรหัสห้องแล้ว?</label>
+      <div style="display:flex;gap:8px;margin-top:6px;">
+        <input id="joinInput" class="field" style="text-transform:uppercase;" maxlength="4" value="${ui.joinInput}" placeholder="รหัสห้อง 4 หลัก" oninput="ui.joinInput=this.value.toUpperCase()">
+        <button class="btn btn-ghost-dark" onclick="handleJoinRoom()">เข้าร่วม</button>
+      </div>
+    </div>
+  </div>
+  <div class="footer-note">ระบบจำลอง ไม่อ้างอิงพรรคการเมืองหรือบุคคลจริง</div>
+  `;
+};
+
+SCREENS.game=function(){
+  if(!ui.room) return `<div class="waiting-box">กำลังโหลดห้อง...</div>`;
+  return PHASE_TEMPLATES[ui.room.phase] ? PHASE_TEMPLATES[ui.room.phase]() : `<div class="waiting-box">ไม่รู้จักสถานะเกม</div>`;
+};
+
+/* ---------- shared chrome ---------- */
+function topbar(){
+  const r=ui.room;
+  return `<div class="topbar">
+    <div class="brand"><div class="room-pill">ห้อง ${r.roomCode}</div></div>
+    <div class="stats">
+      <div class="stat"><div class="label">งบประมาณแผ่นดิน</div><div class="value">฿${fmt(r.treasury)}ล.</div></div>
+      <div class="stat"><div class="label">ความเชื่อมั่น</div><div class="value">${fmt(r.national.trust)}</div></div>
+      <div class="stat"><div class="label">ความไม่สงบ</div><div class="value">${fmt(r.national.unrest)}</div></div>
+      <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px;" onclick="leaveRoom()">ออกจากห้อง</button>
+    </div>
+  </div>`;
+}
+function breadcrumb(activeKey){
+  const steps=[['campaign','หาเสียงเลือกตั้ง'],['coalition','จัดตั้งรัฐบาล'],['cabinet','แต่งตั้งคณะรัฐมนตรี'],['governing','บริหารประเทศ']];
+  const order=['campaign','coalition','cabinet','governing'];
+  const activeIdx=order.indexOf(activeKey);
+  return `<div class="breadcrumb">${steps.map(([k,label],i)=>{
+    let cls='step';
+    if(k===activeKey) cls+=' active'; else if(i<activeIdx) cls+=' done';
+    return `<div class="${cls}">${i+1}. ${label}</div>`;
+  }).join('')}</div>`;
+}
+function regionLeaningLabel(r){
+  const parts=[];
+  parts.push(r.leaning.economy<-15?'เอียงประชานิยม':r.leaning.economy>15?'เอียงเสรีตลาด':'กลางด้านเศรษฐกิจ');
+  parts.push(r.leaning.reform>15?'นิยมปฏิรูป':r.leaning.reform<-15?'นิยมสถาบันเดิม':'');
+  parts.push(r.leaning.security>15?'เน้นความมั่นคง':r.leaning.security<-15?'สายเจรจา':'');
+  return parts.filter(Boolean).join(' · ');
+}
+function gauge(label,value,inverse){
+  value=clamp(value,0,100);
+  let cls='good';
+  if(inverse){ cls = value>65?'bad':value>35?'warn':'good'; } else { cls = value<35?'bad':value<65?'warn':'good'; }
+  return `<div class="gauge"><div class="gauge-top"><span class="lbl">${label}</span><span class="val">${fmt(value)}</span></div><div class="gauge-bar"><div class="gauge-fill ${cls}" style="width:${value}%"></div></div></div>`;
+}
+
+/* ================= PHASE TEMPLATES ================= */
+const PHASE_TEMPLATES={};
+
+PHASE_TEMPLATES.lobby=function(){
+  const r=ui.room;
+  const mine=mySlot();
+  const humanCount=claimedSlots().length;
+  return `
+  <div class="panel-dark" style="text-align:center;">
+    <div class="term-badge">ห้องรอผู้เล่น</div>
+    <h1 class="serif" style="font-size:26px;margin:8px 0 2px;">แบ่งพรรคการเมือง</h1>
+    <div class="code-display">${r.roomCode}</div>
+    <div style="font-size:12.5px;color:var(--muted-on-navy);">ส่งรหัสนี้ให้เพื่อน แล้วให้เพื่อนกด "เข้าร่วมห้องด้วยรหัส" ที่หน้าแรก</div>
+  </div>
+  <div class="doc">
+    <h2>เลือกพรรคของคุณ</h2>
+    <div class="doc-sub">ผู้เล่น ${humanCount} / ${r.slots.length} คน &middot; ที่เหลือจะให้ AI เล่นแทนเมื่อเริ่มเกม</div>
+    ${r.slots.map((s,i)=>slotCard(s,i,mine)).join('')}
+
+    ${mine?`
+    <div style="margin-top:18px;border-top:1px solid var(--paper-line);padding-top:16px;">
+      <label style="font-size:12.5px;font-weight:600;">ตั้งชื่อพรรคของคุณ</label>
+      <input class="field" style="margin-top:6px;" value="${mine.name}" onchange="updateMySlotField('name',this.value)">
+      <div style="margin-top:12px;">
+        <label style="font-size:12.5px;font-weight:600;">สีประจำพรรค</label>
+        <div class="color-swatches" style="margin-top:8px;">
+          ${PARTY_TEMPLATES.map(t=>t.color).map(c=>`<button style="background:${c};" class="${mine.color===c?'picked':''}" onclick="updateMySlotField('color','${c}')"></button>`).join('')}
+        </div>
+      </div>
+    </div>` : ''}
+
+    <div class="btn-row">
+      ${isHost()?`<button class="btn btn-stamp" ${humanCount<2?'disabled':''} onclick="startGame()">เริ่มเกม (${humanCount} ผู้เล่น)</button>`:`<div class="waiting-box" style="padding:6px;">รอโฮสต์เริ่มเกม...</div>`}
+    </div>
+  </div>
+  `;
+};
+function slotCard(s,i,mine){
+  const taken=!!s.claimedBy;
+  const isMine=mine&&mine.id===s.id;
+  return `<div class="slot-card ${taken?'taken':''}">
+    <span class="dot" style="background:${s.color}"></span>
+    <div class="info">
+      <div class="sname">${s.name}</div>
+      <div class="smeta">${taken?('ผู้เล่น: '+(s.playerDisplayName||'ไม่ทราบชื่อ')+(isMine?' (คุณ)':'')):'ว่าง — จะให้ AI เล่นแทนถ้าไม่มีใครเลือก'}</div>
+    </div>
+    ${!taken?`<button class="btn btn-ghost-dark" onclick="claimSlot(${i})">เข้าร่วมพรรคนี้</button>`:(isMine?`<span class="tag human">คุณ</span>`:`<span class="tag human">มีคนแล้ว</span>`)}
+  </div>`;
+}
+
+PHASE_TEMPLATES.campaign=function(){
+  const r=ui.room; const mine=mySlot();
+  const submittedCount=claimedSlots().filter(s=>s.submitted).length;
+  const totalHuman=claimedSlots().length;
+  if(!mine){
+    return `${topbar()}${breadcrumb('campaign')}<div class="doc"><div class="waiting-box">คุณไม่ได้ควบคุมพรรคในห้องนี้ กำลังชมเกม...<br>รอผู้เล่นส่งนโยบาย (${submittedCount}/${totalHuman})</div></div>`;
+  }
+  if(mine.submitted){
+    return `${topbar()}${breadcrumb('campaign')}<div class="doc"><h2>ส่งนโยบายแล้ว</h2><div class="waiting-box">รอผู้เล่นคนอื่นยืนยันนโยบาย (${submittedCount}/${totalHuman})</div></div>`;
+  }
+  const draft=ui.draft||{policy:{...mine.policy},budget:{north:0,isaan:0,central:0,bangkok:0,south:0}};
+  ui.draft=draft;
+  const used=Object.values(draft.budget).reduce((a,b)=>a+b,0);
+  const remaining=100-used;
+  return `
+  ${topbar()}${breadcrumb('campaign')}
+  <div class="doc">
+    <h2>แถลงนโยบายพรรค — ${mine.name}</h2>
+    <div class="doc-sub">สมัยที่ ${r.term} &middot; ปรับจุดยืนนโยบายก่อนลงพื้นที่หาเสียง</div>
+    <div class="axis"><div class="axis-labels"><span>ประชานิยม / รัฐสวัสดิการ</span><span>เสรีตลาด / ทุนนิยม</span></div>
+      <input type="range" min="-100" max="100" value="${draft.policy.economy}" oninput="ui.draft.policy.economy=Number(this.value)"></div>
+    <div class="axis"><div class="axis-labels"><span>อนุรักษ์นิยม / รักษาสถาบันเดิม</span><span>ปฏิรูปโครงสร้าง</span></div>
+      <input type="range" min="-100" max="100" value="${draft.policy.reform}" oninput="ui.draft.policy.reform=Number(this.value)"></div>
+    <div class="axis"><div class="axis-labels"><span>สายพิราบ / เจรจา</span><span>สายเหยี่ยว / ความมั่นคง</span></div>
+      <input type="range" min="-100" max="100" value="${draft.policy.security}" oninput="ui.draft.policy.security=Number(this.value)"></div>
+  </div>
+  <div class="doc">
+    <h2>แผนจัดสรรงบหาเสียง</h2>
+    <div class="doc-sub">งบหาเสียงทั้งหมด 100 หน่วย &middot; เหลือ <strong class="mono">${remaining}</strong> หน่วย</div>
+    <table class="ledger"><thead><tr><th>ภูมิภาค</th><th>ที่นั่ง</th><th>แนวโน้มพื้นที่</th><th>งบที่จัดสรร</th></tr></thead><tbody>
+      ${REGIONS.map(reg=>`<tr>
+        <td><span class="region-name">${reg.name}</span></td>
+        <td class="mono">${reg.seats}</td>
+        <td><span class="region-tags">${regionLeaningLabel(reg)}</span></td>
+        <td><div class="stepper">
+          <button onclick="adjustDraftBudget('${reg.id}',-5)">−</button>
+          <span class="amt">${draft.budget[reg.id]}</span>
+          <button onclick="adjustDraftBudget('${reg.id}',5)">+</button>
+        </div></td>
+      </tr>`).join('')}
+    </tbody></table>
+    <div class="btn-row">
+      <button class="btn btn-stamp" ${remaining<0?'disabled':''} onclick="submitCampaign()">ยืนยันนโยบาย &amp; งบหาเสียง</button>
+    </div>
+  </div>
+  <div class="footer-note">ผู้เล่นยืนยันแล้ว ${submittedCount}/${totalHuman} คน</div>
+  `;
+};
+
+PHASE_TEMPLATES.election_result=function(){
+  const r=ui.room;
+  const res=r.lastElection.results;
+  const chartList=res.map(x=>{ const slot=r.slots.find(s=>s.id===x.id); return {...x,economy:slot.policy.economy}; });
+  const majorityHolder=res[0];
+  const won=majorityHolder.seats>=MAJORITY;
+  return `
+  ${topbar()}${breadcrumb('campaign')}
+  <div class="doc">
+    <h2>ประกาศผลการเลือกตั้ง</h2>
+    <div class="doc-sub">รวมที่นั่งทั้งสภา ${TOTAL_SEATS} ที่นั่ง &middot; ต้องการ ${MAJORITY} ที่นั่งเพื่อเสียงข้างมาก</div>
+    <div class="seat-chart-wrap">
+      ${seatChartSVG(chartList)}
+      <div class="legend">${res.map(x=>{const slot=r.slots.find(s=>s.id===x.id);return `<div class="item"><span class="swatch" style="background:${x.color}"></span>${x.name}${slot.claimedBy?'':' (AI)'} <span class="mono">${x.seats}</span></div>`;}).join('')}</div>
+    </div>
+    <div class="result-box">
+      พรรค <strong>${majorityHolder.name}</strong> ได้ที่นั่งมากที่สุด (${majorityHolder.seats} ที่นั่ง)
+      ${won?' — ได้เสียงข้างมากเด็ดขาด จัดตั้งรัฐบาลพรรคเดียวได้ทันที':' — ไม่มีพรรคใดได้เสียงข้างมากเด็ดขาด ต้องเจรจาจัดตั้งรัฐบาลผสม'}
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-stamp" onclick="proceedAfterElection()">${won?'จัดตั้งรัฐบาล':'เริ่มเจรจาจัดตั้งรัฐบาล'}</button>
+    </div>
+  </div>
+  `;
+};
+
+PHASE_TEMPLATES.coalition=function(){
+  const r=ui.room; const mine=mySlot();
+  const pmSlot=r.slots.find(s=>s.id===r.pm);
+  const isPM=mine&&mine.id===r.pm;
+  const others=r.slots.filter(s=>s.id!==r.pm && (r.lastElection.results.find(x=>x.id===s.id)?.seats||0)>0);
+  let acceptedSeats=0;
+  others.forEach(s=>{ if(r.invitations[s.id]==='accepted'){ acceptedSeats+=(r.lastElection.results.find(x=>x.id===s.id)?.seats||0); } });
+  const pmSeats=(r.lastElection.results.find(x=>x.id===r.pm)?.seats||0);
+  const total=pmSeats+acceptedSeats;
+  const ok=total>=MAJORITY;
+
+  const chartList=[{id:pmSlot.id,name:pmSlot.name,color:pmSlot.color,seats:pmSeats,economy:pmSlot.policy.economy}];
+  others.forEach(s=>{
+    const seats=(r.lastElection.results.find(x=>x.id===s.id)?.seats||0);
+    const status=r.invitations[s.id];
+    chartList.push({id:s.id,name:s.name,color:status==='accepted'?s.color:s.color+'55',seats,economy:s.policy.economy});
+  });
+
+  const myInviteStatus = mine && r.invitations[mine.id];
+
+  return `
+  ${topbar()}${breadcrumb('coalition')}
+  <div class="doc">
+    <h2>เจรจาจัดตั้งรัฐบาลผสม</h2>
+    <div class="doc-sub">พรรคแกนนำ: <strong>${pmSlot.name}</strong>${pmSlot.claimedBy?'':' (AI ดำเนินการอัตโนมัติ)'} มี ${pmSeats} ที่นั่ง &middot; ต้องการรวม ${MAJORITY} ที่นั่ง</div>
+
+    ${others.map(s=>{
+      const seats=(r.lastElection.results.find(x=>x.id===s.id)?.seats||0);
+      const d=policyDistance(pmSlot.policy,s.policy);
+      const tag=distanceTag(d);
+      const status=r.invitations[s.id];
+      return `<div class="party-row ${status==='accepted'?'selected':''} ${mine&&mine.id===s.id?'mine':''}">
+        <span class="dot" style="background:${s.color}"></span>
+        <div class="info">
+          <div class="pname">${s.name} <span class="tag ${tag.cls}">${tag.label}</span> ${s.claimedBy?'<span class="tag human">คน</span>':'<span class="tag ai">AI</span>'}</div>
+          <div class="pmeta">${seats} ที่นั่ง</div>
+        </div>
+        ${status?`<span class="tag ${status}">${status==='accepted'?'ตอบรับ':status==='declined'?'ปฏิเสธ':'รอตอบรับ'}</span>`
+          : (isPM?`<button class="btn btn-ghost-dark" style="padding:5px 12px;font-size:12px;" onclick="inviteToCoalition('${s.id}')">เชิญร่วมรัฐบาล</button>`:'<span class="tag medium">ยังไม่เชิญ</span>')}
+      </div>`;
+    }).join('')}
+
+    <div class="seat-chart-wrap" style="margin-top:18px;">
+      ${seatChartSVG(chartList)}
+      <div class="majority-line">รวมเสียงพรรคร่วม: <strong class="mono">${total}</strong> / ${MAJORITY} ${ok?'✓ ครบเสียงข้างมาก':''}</div>
+    </div>
+
+    ${myInviteStatus==='pending'?`
+    <div class="result-box">พรรค <strong>${pmSlot.name}</strong> เชิญพรรคของคุณเข้าร่วมรัฐบาล
+      <div class="btn-row">
+        <button class="btn btn-ghost-dark" onclick="respondInvite('declined')">ปฏิเสธ</button>
+        <button class="btn btn-stamp" onclick="respondInvite('accepted')">ตอบรับร่วมรัฐบาล</button>
+      </div>
+    </div>`:''}
+
+    ${isPM?`<div class="btn-row"><button class="btn btn-stamp" ${ok?'':'disabled'} onclick="confirmCoalition()">ลงนามจัดตั้งรัฐบาล</button></div>`
+      : (!pmSlot.claimedBy?`<div class="waiting-box">AI กำลังเจรจาจัดตั้งรัฐบาล...</div>`:`<div class="waiting-box">รอพรรคแกนนำสรุปรัฐบาลผสม...</div>`)}
+  </div>
+  `;
+};
+
+PHASE_TEMPLATES.cabinet=function(){
+  const r=ui.room; const mine=mySlot();
+  const pmSlot=r.slots.find(s=>s.id===r.pm);
+  const isPM=mine&&mine.id===r.pm;
+  const parties=r.coalitionSlots.map(id=>r.slots.find(s=>s.id===id));
+  const assignedWeight={}; parties.forEach(p=>assignedWeight[p.id]=0);
+  MINISTRIES.forEach(m=>{ const owner=r.cabinet[m.id]; if(owner) assignedWeight[owner]=(assignedWeight[owner]||0)+m.weight; });
+  const allAssigned=MINISTRIES.every(m=>r.cabinet[m.id]);
+
+  if(!isPM){
+    return `${topbar()}${breadcrumb('cabinet')}<div class="doc"><h2>รอการแต่งตั้งคณะรัฐมนตรี</h2>
+      <div class="waiting-box">${pmSlot.claimedBy?('พรรค '+pmSlot.name+' กำลังจัดสรรตำแหน่งรัฐมนตรี...'):'AI กำลังจัดสรรตำแหน่งรัฐมนตรี...'}</div></div>`;
+  }
+  return `
+  ${topbar()}${breadcrumb('cabinet')}
+  <div class="doc">
+    <h2>คำสั่งแต่งตั้งคณะรัฐมนตรี</h2>
+    <div class="doc-sub">จัดสรรตำแหน่งรัฐมนตรี ${MINISTRIES.length} กระทรวงให้พรรคร่วมรัฐบาล ★ แทนระดับความสำคัญของกระทรวง</div>
+    ${MINISTRIES.map(m=>`<div class="ministry-row">
+      <div class="mname">${m.name}</div>
+      <div class="stars">${'★'.repeat(m.weight)}${'☆'.repeat(3-m.weight)}</div>
+      <select onchange="assignMinistry('${m.id}',this.value)">
+        <option value="">— เลือกพรรค —</option>
+        ${parties.map(p=>`<option value="${p.id}" ${r.cabinet[m.id]===p.id?'selected':''}>${p.name}</option>`).join('')}
+      </select>
+    </div>`).join('')}
+    <div class="btn-row left"><button class="btn btn-ghost-dark" onclick="autoSuggestCabinet()">จัดสรรอัตโนมัติตามสัดส่วนที่นั่ง</button></div>
+    <div style="margin-top:16px;">
+      ${parties.map(p=>{const share=(assignedWeight[p.id]||0); const seats=(r.lastElection.results.find(x=>x.id===p.id)?.seats||0);
+        return `<div style="font-size:12.5px;margin-bottom:4px;"><span class="swatch" style="background:${p.color};display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;"></span>${p.name}: ${share}/${TOTAL_WEIGHT} หน่วยน้ำหนักกระทรวง (${seats} ที่นั่ง)</div>`;}).join('')}
+    </div>
+    <div class="btn-row"><button class="btn btn-stamp" ${allAssigned?'':'disabled'} onclick="confirmCabinet()">แต่งตั้งคณะรัฐมนตรี</button></div>
+  </div>
+  `;
+};
+
+PHASE_TEMPLATES.governing=function(){
+  const r=ui.room; const mine=mySlot();
+  const ev=r.currentEvent;
+  const result=r.currentEffectResult;
+  const ownerSlot=r.slots.find(s=>s.id===r.currentEventOwnerSlot);
+  const isMyTurn = mine && ownerSlot && ownerSlot.id===mine.id;
+  const inGovernment = mine && r.coalitionSlots.includes(mine.id);
+  const isOpposition = mine && !inGovernment;
+
+  const popFor = (slotId)=>r.popularity?.[slotId] || {north:0,isaan:0,central:0,bangkok:0,south:0};
+  const popSlotId = mine ? mine.id : r.pm;
+  const popLabel = mine ? 'ความนิยมสะสมของพรรคคุณ' : 'ความนิยมสะสมของรัฐบาล';
+
+  const usedMotion = mine && r.oppositionActions?.[mine.id]?.noConfidenceUsedThisTerm;
+  const motionPending = !!r.queuedEvent || (ev && ev._filedBy);
+  const canFileMotion = isOpposition && !usedMotion && !motionPending;
+
+  return `
+  ${topbar()}${breadcrumb('governing')}
+  <div class="side-grid">
+    <div>
+      <div class="panel-dark"><h3 style="margin-top:0;font-size:14px;">สถานการณ์ประเทศ</h3>
+        ${gauge('เศรษฐกิจ',r.national.economy)}
+        ${gauge('ความเชื่อมั่นประชาชน',r.national.trust)}
+        ${gauge('ความไม่สงบ',r.national.unrest,true)}
+      </div>
+      <div class="panel-dark"><h3 style="margin-top:0;font-size:14px;">พรรคร่วมรัฐบาล</h3>
+        ${r.coalitionParties.filter(p=>p.id!==r.pm).map(p=>{const s=r.slots.find(x=>x.id===p.id); return gauge(s.name,p.satisfaction);}).join('') || '<div style="font-size:12.5px;color:var(--muted-on-navy);">ปกครองเสียงข้างมากเดี่ยว</div>'}
+      </div>
+      <div class="panel-dark"><h3 style="margin-top:0;font-size:14px;">${popLabel}</h3>
+        ${REGIONS.map(reg=>gauge(reg.name, clamp(50+(popFor(popSlotId)[reg.id]||0),0,100))).join('')}
+      </div>
+      ${isOpposition?`
+      <div class="panel-dark">
+        <h3 style="margin-top:0;font-size:14px;">บทบาทฝ่ายค้าน</h3>
+        <div style="font-size:12.5px;color:var(--muted-on-navy);margin-bottom:10px;">พรรคของคุณสะสมความนิยมเองจากผลงานรัฐบาล — ยิ่งรัฐบาลบริหารแย่ พรรคคุณยิ่งได้เปรียบตอนเลือกตั้งครั้งหน้า</div>
+        <button class="btn btn-ghost" style="width:100%;" ${canFileMotion?'':'disabled'} onclick="fileNoConfidence()">ยื่นอภิปรายไม่ไว้วางใจ</button>
+        <div style="font-size:11px;color:var(--muted-on-navy);margin-top:6px;">${usedMotion?'ใช้สิทธิ์ในสมัยนี้ไปแล้ว':(motionPending?'มีญัตติค้างอยู่ในคิว':'ใช้ได้ 1 ครั้งต่อสมัย — บีบให้รัฐบาลตอบคำถามในสภา')}</div>
+      </div>`:''}
+    </div>
+    <div>
+      <div class="doc event-card">
+        <h2>${ev.title} ${isMyTurn?'<span class="turn-badge">ตาของคุณ</span>':''}</h2>
+        <div class="doc-sub">ไตรมาสที่ ${r.turn} / ${r.turnsPerTerm} &middot; สมัยที่ ${r.term} &middot; ผู้ตัดสินใจ: ${ownerSlot.name}${ownerSlot.claimedBy?'':' (AI)'}${ev._filedBy?' &middot; ยื่นโดย '+(r.slots.find(s=>s.id===ev._filedBy)?.name||''):''}</div>
+        <p style="font-size:14px;line-height:1.7;">${ev.desc}</p>
+        ${result?`
+          <div class="result-box">${result.text}<div class="effect-tags">${result.tags.map(t=>`<span class="efftag ${t.sign}">${t.text}</span>`).join('')}</div></div>
+          ${isMyTurn?`<div class="btn-row"><button class="btn btn-stamp" onclick="nextTurn()">ดำเนินการต่อ</button></div>`:`<div class="waiting-box">รอ ${ownerSlot.name} ดำเนินการต่อ...</div>`}
+        `:(isMyTurn?`
+          ${ev.choices.map((c,i)=>`<button class="event-choice" onclick="chooseEvent(${i})"><span class="clabel">${c.label}</span><span class="cdesc">${c.desc}</span></button>`).join('')}
+        `:`<div class="waiting-box">รอ ${ownerSlot.name}${ownerSlot.claimedBy?'':' (AI)'} ตัดสินใจ...</div>`)}
+      </div>
+    </div>
+  </div>
+  `;
+};
+
+PHASE_TEMPLATES.term_summary=function(){
+  const r=ui.room; const collapsed=r.collapsed;
+  return `
+  ${topbar()}
+  <div class="panel-dark" style="text-align:center;margin-top:24px;">
+    <div class="term-badge">${collapsed?'รัฐบาลสิ้นสุดก่อนกำหนด':'ครบวาระการดำรงตำแหน่ง'}</div>
+    <h1 class="serif" style="font-size:24px;margin:10px 0;">${collapsed?'รัฐบาลล่ม — พรรคร่วมถอนตัว':'สิ้นสุดสมัยที่ '+r.term}</h1>
+  </div>
+  <div class="doc">
+    <h2>สรุปผลการบริหารประเทศ</h2>
+    <div class="doc-grid">
+      <div>
+        <p><strong>เศรษฐกิจ:</strong> ${fmt(r.national.economy)}/100</p>
+        <p><strong>ความเชื่อมั่นประชาชน:</strong> ${fmt(r.national.trust)}/100</p>
+        <p><strong>ความไม่สงบ:</strong> ${fmt(r.national.unrest)}/100</p>
+        <p><strong>งบประมาณแผ่นดินคงเหลือ:</strong> ฿${fmt(r.treasury)} ล้านบาท</p>
+      </div>
+      <div>
+        <p style="font-size:13px;color:var(--ink-soft);">${collapsed?'ความไม่พอใจของพรรคร่วมรัฐบาลสะสมจนถอนตัว ทำให้เสียงในสภาไม่ถึงกึ่งหนึ่ง รัฐบาลจึงสิ้นสุดลงก่อนครบวาระ':'รัฐบาลบริหารประเทศครบวาระ มีการยุบสภาเพื่อจัดการเลือกตั้งใหม่'}</p>
+      </div>
+    </div>
+    <div class="btn-row"><button class="btn btn-stamp" onclick="startNewTerm()">จัดการเลือกตั้งใหม่ &raquo;</button></div>
+  </div>
+  `;
+};
+
+/* ================= ACTIONS ================= */
+function handleCreateRoom(){
+  const name=(ui.nameInput||'').trim();
+  if(!name){ alert('กรุณาใส่ชื่อของคุณก่อน'); return; }
+  localStorage.setItem('jadtang_pname',name);
+  const code=genRoomCode();
+  const slots=PARTY_TEMPLATES.map((t,i)=>({
+    id:'s'+i, name:t.name, color:t.color, emblem:t.name[3]||t.name[0],
+    policy:{...t.policy}, claimedBy:null, playerDisplayName:null,
+    submitted:false, budget:{north:0,isaan:0,central:0,bangkok:0,south:0}
+  }));
+  const emptyPop={north:0,isaan:0,central:0,bangkok:0,south:0};
+  const roomData={
+    roomCode:code, hostId:MY_ID, phase:'lobby', createdAt:Date.now(),
+    slots, term:1, treasury:200, national:{economy:50,trust:50,unrest:20},
+    popularity:Object.fromEntries(slots.map(s=>[s.id,{...emptyPop}])),
+    oppositionActions:{}, queuedEvent:null,
+    lastElection:null, pm:null, coalitionSlots:[], invitations:{}, cabinet:{}, coalitionParties:[],
+    turn:1, turnsPerTerm:8, usedEventIds:[], currentEvent:null, currentEventOwnerSlot:null, currentEffectResult:null,
+    collapsed:false, electionLock:false, pendingCollapse:false,
+  };
+  db.collection(ROOMS).doc(code).set(roomData).then(()=>{
+    subscribeRoom(code);
+  }).catch(e=>alert('สร้างห้องไม่สำเร็จ: '+e.message));
+}
+
+function handleJoinRoom(){
+  const name=(ui.nameInput||'').trim();
+  if(!name){ alert('กรุณาใส่ชื่อของคุณก่อน'); return; }
+  const code=(ui.joinInput||'').trim().toUpperCase();
+  if(code.length!==4){ alert('กรุณาใส่รหัสห้อง 4 หลัก'); return; }
+  localStorage.setItem('jadtang_pname',name);
+  db.collection(ROOMS).doc(code).get().then(snap=>{
+    if(!snap.exists){ alert('ไม่พบห้องนี้ ตรวจสอบรหัสอีกครั้ง'); return; }
+    subscribeRoom(code);
+  });
+}
+
+function leaveRoom(){
+  if(ui.unsub) ui.unsub();
+  ui.unsub=null; ui.room=null; ui.roomCode=null; ui.screen='home'; ui.draft=null;
+  render();
+}
+
+function claimSlot(idx){
+  const slots=ui.room.slots.map(s=>({...s}));
+  slots.forEach(s=>{ if(s.claimedBy===MY_ID){ s.claimedBy=null; s.playerDisplayName=null; } });
+  slots[idx].claimedBy=MY_ID;
+  slots[idx].playerDisplayName=ui.nameInput||'ผู้เล่น';
+  roomRef().update({slots});
+}
+function updateMySlotField(field,val){
+  const slots=ui.room.slots.map(s=>s.claimedBy===MY_ID?{...s,[field]:val}:s);
+  roomRef().update({slots});
+}
+function startGame(){
+  const slots=ui.room.slots.map(s=>({...s,submitted:false,budget:{north:0,isaan:0,central:0,bangkok:0,south:0}}));
+  roomRef().update({phase:'campaign',slots});
+}
+
+function adjustDraftBudget(regionId,delta){
+  const used=Object.entries(ui.draft.budget).reduce((s,[k,v])=>s+(k===regionId?0:v),0);
+  let cur=ui.draft.budget[regionId]+delta;
+  cur=Math.max(0,Math.min(100-used,cur));
+  ui.draft.budget[regionId]=cur;
+  render();
+}
+
+function submitCampaign(){
+  const draft=ui.draft;
+  const slots=ui.room.slots.map(s=>s.claimedBy===MY_ID?{...s,submitted:true,policy:draft.policy,budget:draft.budget}:s);
+  ui.draft=null;
+  stampAndThen('ยืนยันแล้ว',()=>{ roomRef().update({slots}); });
+}
+
+/* ---------- election calc (multiplayer, run by transaction) ---------- */
+function computeElectionFromSlots(slots,popularityBySlot){
+  popularityBySlot=popularityBySlot||{};
+  const parties=slots.map(slot=>{
+    let budget=slot.budget;
+    if(!slot.claimedBy){
+      const base={}; let sum=0;
+      REGIONS.forEach(reg=>{ const d=policyDistance(slot.policy,reg.leaning); const a=Math.max(5,100-d*70); base[reg.id]=a; sum+=a; });
+      budget={}; REGIONS.forEach(reg=>{ budget[reg.id]=Math.round(100*base[reg.id]/sum); });
+    }
+    return {id:slot.id,name:slot.name,color:slot.color,policy:slot.policy,budget};
+  });
+  const regionSeats={}; const totals={}; parties.forEach(p=>totals[p.id]=0);
+  REGIONS.forEach(reg=>{
+    const appeals=parties.map(p=>{
+      const d=policyDistance(p.policy,reg.leaning);
+      let a=Math.max(3,100-d*55);
+      const alloc=p.budget[reg.id]||0;
+      a+=Math.sqrt(Math.max(0,alloc))*3;
+      a+=((popularityBySlot[p.id]||{})[reg.id]||0)*0.5;
+      a+=(Math.random()*16-8);
+      return {id:p.id,appeal:Math.max(1,a)};
+    });
+    const eligible=appeals.filter(a=>a.appeal>=15);
+    const pool=eligible.length?eligible:appeals;
+    const sumApp=pool.reduce((s,a)=>s+a.appeal,0);
+    const raw=pool.map(a=>({id:a.id,exact:reg.seats*a.appeal/sumApp}));
+    const floors=raw.map(x=>({id:x.id,seats:Math.floor(x.exact),rem:x.exact-Math.floor(x.exact)}));
+    let allocated=floors.reduce((s,f)=>s+f.seats,0);
+    let remaining=reg.seats-allocated;
+    floors.sort((a,b)=>b.rem-a.rem);
+    for(let i=0;i<remaining;i++){ floors[i%floors.length].seats+=1; }
+    const seatMap={};
+    floors.forEach(f=>{ seatMap[f.id]=f.seats; totals[f.id]=(totals[f.id]||0)+f.seats; });
+    regionSeats[reg.id]=seatMap;
+  });
+  const results=parties.map(p=>({id:p.id,name:p.name,color:p.color,seats:totals[p.id]||0}));
+  results.sort((a,b)=>b.seats-a.seats);
+  return {results,regionSeats};
+}
+
+function maybeRunElection(){
+  const r=ui.room;
+  if(r.phase!=='campaign'||r.electionLock) return;
+  const humans=claimedSlots();
+  if(humans.length===0 || !humans.every(s=>s.submitted)) return;
+  db.runTransaction(t=>{
+    return t.get(roomRef()).then(snap=>{
+      const data=snap.data();
+      if(data.phase!=='campaign'||data.electionLock) return;
+      const humans2=data.slots.filter(s=>s.claimedBy);
+      if(!humans2.every(s=>s.submitted)) return;
+      const lastElection=computeElectionFromSlots(data.slots,data.popularity);
+      t.update(roomRef(),{electionLock:true,lastElection,phase:'election_result'});
+    });
+  });
+}
+
+function proceedAfterElection(){
+  db.runTransaction(t=>t.get(roomRef()).then(snap=>{
+    const data=snap.data();
+    if(data.phase!=='election_result') return;
+    const winner=data.lastElection.results[0];
+    if(winner.seats>=MAJORITY){
+      const coalitionParties=[{id:winner.id,satisfaction:100}];
+      t.update(roomRef(),{phase:'cabinet',pm:winner.id,coalitionSlots:[winner.id],coalitionParties,cabinet:{},invitations:{}});
+    } else {
+      t.update(roomRef(),{phase:'coalition',pm:winner.id,coalitionSlots:[],coalitionParties:[],invitations:{},cabinet:{},electionLock:false});
+    }
+  }));
+}
+
+function inviteToCoalition(slotId){
+  const invitations={...ui.room.invitations};
+  const targetSlot=ui.room.slots.find(s=>s.id===slotId);
+  if(targetSlot.claimedBy){
+    invitations[slotId]='pending';
+    roomRef().update({invitations});
+  } else {
+    const pmSlot=ui.room.slots.find(s=>s.id===ui.room.pm);
+    const d=policyDistance(pmSlot.policy,targetSlot.policy);
+    invitations[slotId]= d<1.3 ? 'accepted' : 'declined';
+    roomRef().update({invitations});
+  }
+}
+function respondInvite(status){
+  const mine=mySlot();
+  const invitations={...ui.room.invitations,[mine.id]:status};
+  roomRef().update({invitations});
+}
+function confirmCoalition(){
+  const r=ui.room;
+  const acceptedIds=Object.entries(r.invitations).filter(([k,v])=>v==='accepted').map(([k])=>k);
+  const coalitionSlots=[r.pm,...acceptedIds];
+  const coalitionParties=coalitionSlots.map(id=>({id,satisfaction:id===r.pm?100:50}));
+  stampAndThen('ลงนามแล้ว',()=>{ roomRef().update({phase:'cabinet',coalitionSlots,coalitionParties,cabinet:{}}); });
+}
+
+function assignMinistry(ministryId,partyId){
+  const cabinet={...ui.room.cabinet};
+  if(!partyId) delete cabinet[ministryId]; else cabinet[ministryId]=partyId;
+  roomRef().update({cabinet});
+}
+function autoSuggestCabinet(){
+  const r=ui.room;
+  const parties=r.coalitionSlots.map(id=>({id,seats:(r.lastElection.results.find(x=>x.id===id)?.seats||0)}));
+  const totalSeats=parties.reduce((s,p)=>s+p.seats,0)||1;
+  const assigned={}; parties.forEach(p=>assigned[p.id]=0);
+  const sorted=[...MINISTRIES].sort((a,b)=>b.weight-a.weight);
+  const cabinet={};
+  sorted.forEach(m=>{
+    let best=null,bestScore=Infinity;
+    parties.forEach(p=>{ const target=p.seats/totalSeats; const ratio=target>0?(assigned[p.id]/TOTAL_WEIGHT)/target:Infinity; if(ratio<bestScore){bestScore=ratio;best=p;} });
+    cabinet[m.id]=best.id; assigned[best.id]+=m.weight;
+  });
+  roomRef().update({cabinet});
+}
+function computeCoalitionSatisfaction(r,cabinet){
+  const totalSeats=r.coalitionSlots.reduce((s,id)=>s+(r.lastElection.results.find(x=>x.id===id)?.seats||0),0)||1;
+  const assignedWeight={}; r.coalitionSlots.forEach(id=>assignedWeight[id]=0);
+  MINISTRIES.forEach(m=>{ const o=cabinet[m.id]; if(o) assignedWeight[o]=(assignedWeight[o]||0)+m.weight; });
+  const pmSlot=r.slots.find(s=>s.id===r.pm);
+  return r.coalitionSlots.map(id=>{
+    if(id===r.pm) return {id,satisfaction:100};
+    const slot=r.slots.find(s=>s.id===id);
+    const seats=(r.lastElection.results.find(x=>x.id===id)?.seats||0);
+    const d=policyDistance(pmSlot.policy,slot.policy);
+    const seatShare=seats/totalSeats;
+    const weightShare=(assignedWeight[id]||0)/TOTAL_WEIGHT;
+    const fairness=1-Math.min(1,Math.abs(weightShare-seatShare)*3);
+    let sat=40+fairness*40-d*15;
+    return {id,satisfaction:clamp(sat,5,95)};
+  });
+}
+function confirmCabinet(){
+  const r=ui.room;
+  const coalitionParties=computeCoalitionSatisfaction(r,r.cabinet);
+  const nextR={...r,coalitionParties,usedEventIds:[]};
+  const {event,ownerSlot}=drawEventForRoom(nextR);
+  stampAndThen('แต่งตั้งแล้ว',()=>{
+    roomRef().update({phase:'governing',coalitionParties,turn:1,usedEventIds:[],currentEffectResult:null,currentEvent:event,currentEventOwnerSlot:ownerSlot});
+  });
+}
+
+/* ---------- governing ---------- */
+function drawEventForRoom(r){
+  if(r.queuedEvent){
+    const filerSlot=r.slots.find(s=>s.id===r.queuedEvent.filedBy);
+    const base=EVENTS.find(e=>e.id==='noconf');
+    const event={
+      ...base,
+      title:'ญัตติอภิปรายไม่ไว้วางใจ (ยื่นโดย'+(filerSlot?filerSlot.name:'ฝ่ายค้าน')+')',
+      _filedBy:r.queuedEvent.filedBy,
+    };
+    return {event,ownerSlot:r.pm};
+  }
+  let pool=EVENTS.filter(e=>!r.usedEventIds.includes(e.id));
+  const partnerMinistries=MINISTRIES.filter(m=>r.cabinet[m.id] && r.cabinet[m.id]!==r.pm);
+  if(partnerMinistries.length && !r.usedEventIds.includes('corruption')){
+    const m=partnerMinistries[Math.floor(Math.random()*partnerMinistries.length)];
+    const ownerId=r.cabinet[m.id];
+    const owner=r.slots.find(s=>s.id===ownerId);
+    pool=pool.concat([{
+      id:'corruption', title:'เรื่องอื้อฉาวทุจริตใน'+m.name,
+      desc:`มีรายงานข่าวการทุจริตจัดซื้อจัดจ้างใน${m.name} ซึ่งอยู่ภายใต้การกำกับดูแลของ${owner?owner.name:'พรรคร่วมรัฐบาล'} สื่อมวลชนจับตาอย่างใกล้ชิด`,
+      choices:[
+        {label:'ตั้งกรรมการสอบสวนอิสระ',desc:'สร้างความโปร่งใส แต่กระทบความสัมพันธ์กับพรรคร่วม',effect:{trust:8,treasury:-5,satisfactionParty:{id:ownerId,val:-15}}},
+        {label:'ปกป้องพรรคร่วมรัฐบาล ไม่ตั้งกรรมการ',desc:'รักษาความสัมพันธ์ในรัฐบาล แต่เสี่ยงเสียความเชื่อมั่นสาธารณะ',effect:{trust:-15,unrest:8,satisfactionParty:{id:ownerId,val:10}}},
+      ]
+    }]);
+  }
+  if(!pool.length) pool=EVENTS;
+  const event=pool[Math.floor(Math.random()*pool.length)];
+  let ownerSlot=r.pm;
+  if(event.id!=='corruption'){
+    const mid=MINISTRY_EVENT_MAP[event.id];
+    if(mid){
+      const holder=r.cabinet[mid];
+      if(holder && holder!==r.pm) ownerSlot=holder;
+    }
+  }
+  return {event,ownerSlot};
+}
+
+// Opposition parties don't sit idle: each turn they passively pick up a
+// little of their own regional standing, scaled by how badly the
+// government's national numbers are trending. Distributed across their
+// strongest regions (by their own policy fit) so it still feels tied to
+// what that party stands for, not just a flat freebie.
+function computeOppositionDrift(r,newNational){
+  const discontent = clamp((newNational.unrest-20)/60,0,1)*0.6 + clamp((50-newNational.trust)/50,0,1)*0.6;
+  if(discontent<=0) return {};
+  const oppSlots=r.slots.filter(s=>!r.coalitionSlots.includes(s.id));
+  const drift={};
+  oppSlots.forEach(s=>{
+    const base={}; let sum=0;
+    REGIONS.forEach(reg=>{ const d=policyDistance(s.policy,reg.leaning); const a=Math.max(5,100-d*70); base[reg.id]=a; sum+=a; });
+    const gain={};
+    REGIONS.forEach(reg=>{ gain[reg.id]=discontent*4*(base[reg.id]/sum); });
+    drift[s.id]=gain;
+  });
+  return drift;
+}
+
+function chooseEvent(choiceIdx){
+  const r=ui.room;
+  const ev=r.currentEvent;
+  const choice=ev.choices[choiceIdx];
+  const eff=choice.effect;
+  const update={};
+  update.treasury=r.treasury+(eff.treasury||0);
+  update.national={
+    economy:clamp(r.national.economy+(eff.economy||0)),
+    trust:clamp(r.national.trust+(eff.trust||0)),
+    unrest:clamp(r.national.unrest+(eff.unrest||0)),
+  };
+
+  // Attribute regional effects to whoever actually made the call (PM or the
+  // coalition partner whose ministry it was) so momentum tracks the party
+  // responsible, not a single shared national number.
+  const ownerId=r.currentEventOwnerSlot||r.pm;
+  const popularity={}; Object.keys(r.popularity||{}).forEach(k=>{ popularity[k]={...(r.popularity[k]||{})}; });
+  if(eff.regions){
+    popularity[ownerId]=popularity[ownerId]||{north:0,isaan:0,central:0,bangkok:0,south:0};
+    Object.entries(eff.regions).forEach(([rid,val])=>{ popularity[ownerId][rid]=clamp((popularity[ownerId][rid]||0)+val,-60,60); });
+  }
+  // Opposition passive drift based on the post-effect national mood.
+  const drift=computeOppositionDrift(r,update.national);
+  Object.entries(drift).forEach(([slotId,gain])=>{
+    popularity[slotId]=popularity[slotId]||{north:0,isaan:0,central:0,bangkok:0,south:0};
+    Object.entries(gain).forEach(([rid,val])=>{ popularity[slotId][rid]=clamp((popularity[slotId][rid]||0)+val,-60,60); });
+  });
+
+  let coalitionParties=r.coalitionParties.map(p=>({...p}));
+  if(eff.satisfactionAll) coalitionParties=coalitionParties.map(p=>p.id===r.pm?p:{...p,satisfaction:clamp(p.satisfaction+eff.satisfactionAll,0,100)});
+  if(eff.satisfactionParty) coalitionParties=coalitionParties.map(p=>p.id===eff.satisfactionParty.id?{...p,satisfaction:clamp(p.satisfaction+eff.satisfactionParty.val,0,100)}:p);
+  if(update.national.unrest>70) coalitionParties=coalitionParties.map(p=>p.id===r.pm?p:{...p,satisfaction:clamp(p.satisfaction-5,0,100)});
+  if(update.national.trust<25) coalitionParties=coalitionParties.map(p=>p.id===r.pm?p:{...p,satisfaction:clamp(p.satisfaction-5,0,100)});
+
+  const tags=[];
+  if(eff.treasury) tags.push({sign:eff.treasury>0?'pos':'neg',text:`งบประมาณ ${eff.treasury>0?'+':''}${eff.treasury}`});
+  if(eff.economy) tags.push({sign:eff.economy>0?'pos':'neg',text:`เศรษฐกิจ ${eff.economy>0?'+':''}${eff.economy}`});
+  if(eff.trust) tags.push({sign:eff.trust>0?'pos':'neg',text:`ความเชื่อมั่น ${eff.trust>0?'+':''}${eff.trust}`});
+  if(eff.unrest) tags.push({sign:eff.unrest<0?'pos':'neg',text:`ความไม่สงบ ${eff.unrest>0?'+':''}${eff.unrest}`});
+  if(eff.satisfactionAll) tags.push({sign:eff.satisfactionAll>0?'pos':'neg',text:`ความพอใจพรรคร่วม ${eff.satisfactionAll>0?'+':''}${eff.satisfactionAll}`});
+  if(eff.satisfactionParty) tags.push({sign:eff.satisfactionParty.val>0?'pos':'neg',text:`ความพอใจพรรคร่วม ${eff.satisfactionParty.val>0?'+':''}${eff.satisfactionParty.val}`});
+  if(eff.regions) Object.entries(eff.regions).forEach(([rid,val])=>{ const rname=REGIONS.find(x=>x.id===rid).name; tags.push({sign:val>0?'pos':'neg',text:`${rname} ${val>0?'+':''}${val}`}); });
+
+  // Filer's gambit: defending well in the chamber blunts the attack; a
+  // dismissive response lets the opposition capitalize on it.
+  if(ev._filedBy){
+    const filerName=(r.slots.find(s=>s.id===ev._filedBy)||{}).name||'ฝ่ายค้าน';
+    const filerDelta = choiceIdx===0 ? -3 : 8;
+    popularity[ev._filedBy]=popularity[ev._filedBy]||{north:0,isaan:0,central:0,bangkok:0,south:0};
+    REGIONS.forEach(reg=>{ popularity[ev._filedBy][reg.id]=clamp((popularity[ev._filedBy][reg.id]||0)+filerDelta,-60,60); });
+    tags.push({sign:filerDelta>0?'pos':'neg',text:`ความนิยม ${filerName} ${filerDelta>0?'+':''}${filerDelta}`});
+  }
+
+  update.popularity=popularity;
+  update.currentEffectResult={text:`เลือก: ${choice.label} — ${choice.desc}`,tags};
+  update.usedEventIds=[...r.usedEventIds,ev.id];
+  if(ev._filedBy) update.queuedEvent=null;
+
+  let leftAny=false;
+  const afterCollapse=coalitionParties.map(p=>{
+    if(p.id===r.pm||p.left) return p;
+    let chance=0;
+    if(p.satisfaction<10) chance=0.6; else if(p.satisfaction<25) chance=0.3;
+    if(chance>0 && Math.random()<chance){ leftAny=true; return {...p,left:true}; }
+    return p;
+  });
+  update.coalitionParties=afterCollapse;
+  if(leftAny){
+    const remaining=afterCollapse.filter(p=>!p.left).reduce((s,p)=>s+(r.lastElection.results.find(x=>x.id===p.id)?.seats||0),0);
+    update.pendingCollapse = remaining<MAJORITY;
+  } else { update.pendingCollapse=false; }
+
+  roomRef().update(update);
+}
+
+function fileNoConfidence(){
+  const r=ui.room; const mine=mySlot();
+  if(!mine || r.coalitionSlots.includes(mine.id)) return;
+  if(r.oppositionActions?.[mine.id]?.noConfidenceUsedThisTerm) return;
+  if(r.queuedEvent || (r.currentEvent && r.currentEvent._filedBy)) return;
+  const oppositionActions={...(r.oppositionActions||{}),[mine.id]:{noConfidenceUsedThisTerm:true}};
+  stampAndThen('ยื่นญัตติแล้ว',()=>{
+    roomRef().update({oppositionActions,queuedEvent:{filedBy:mine.id}});
+  });
+}
+
+function nextTurn(){
+  const r=ui.room;
+  if(r.pendingCollapse){
+    roomRef().update({collapsed:true,phase:'term_summary',treasury:Math.max(0,r.treasury-10)});
+    return;
+  }
+  if(r.turn>=r.turnsPerTerm){
+    roomRef().update({collapsed:false,phase:'term_summary'});
+    return;
+  }
+  const nextR={...r,turn:r.turn+1};
+  const {event,ownerSlot}=drawEventForRoom(nextR);
+  roomRef().update({turn:r.turn+1,currentEvent:event,currentEventOwnerSlot:ownerSlot,currentEffectResult:null,queuedEvent:null});
+}
+
+function startNewTerm(){
+  const r=ui.room;
+  const slots=r.slots.map(s=>{
+    if(!s.claimedBy){
+      const drifted={...s.policy};
+      ['economy','reform','security'].forEach(axis=>{ drifted[axis]=clamp(drifted[axis]+(Math.random()*10-5),-100,100); });
+      return {...s,policy:drifted,submitted:false,budget:{north:0,isaan:0,central:0,bangkok:0,south:0}};
+    }
+    return {...s,submitted:false,budget:{north:0,isaan:0,central:0,bangkok:0,south:0}};
+  });
+  roomRef().update({phase:'campaign',term:r.term+1,slots,electionLock:false,invitations:{},pendingCollapse:false,oppositionActions:{},queuedEvent:null});
+}
+
+/* ---------- host-only automation for AI-controlled turns ---------- */
+let automationBusy=false;
+let automationWatchdog=null;
+
+// Safety net: no automated step should legitimately take more than 6s.
+// If automationBusy is ever left stuck true (e.g. an unexpected error fired
+// mid-computation before we could reset it), this clears it so the host's
+// browser can keep driving AI-controlled parties instead of freezing forever.
+function armAutomationWatchdog(){
+  if(automationWatchdog) clearTimeout(automationWatchdog);
+  automationWatchdog=setTimeout(()=>{ automationBusy=false; },6000);
+}
+function releaseAutomation(){
+  automationBusy=false;
+  if(automationWatchdog){ clearTimeout(automationWatchdog); automationWatchdog=null; }
+}
+
+function runHostAutomation(){
+  if(!isHost()||automationBusy||!ui.room) return;
+  const r=ui.room;
+
+  if(r.phase==='campaign'){ maybeRunElection(); return; }
+
+  if(r.phase==='coalition' && !r.slots.find(s=>s.id===r.pm).claimedBy){
+    const already = Object.keys(r.invitations||{}).length>0 || (r.coalitionSlots&&r.coalitionSlots.length>0);
+    if(!already){
+      automationBusy=true;
+      armAutomationWatchdog();
+      setTimeout(()=>{
+        try{
+          const pmSlot=r.slots.find(s=>s.id===r.pm);
+          const others=r.slots.filter(s=>s.id!==r.pm && (r.lastElection.results.find(x=>x.id===s.id)?.seats||0)>0)
+            .sort((a,b)=>(r.lastElection.results.find(x=>x.id===b.id)?.seats||0)-(r.lastElection.results.find(x=>x.id===a.id)?.seats||0));
+          let total=(r.lastElection.results.find(x=>x.id===r.pm)?.seats||0);
+          const invitations={};
+          for(const s of others){
+            if(total>=MAJORITY) break;
+            const d=policyDistance(pmSlot.policy,s.policy);
+            invitations[s.id]= d<1.3 ? 'accepted' : 'declined';
+            if(invitations[s.id]==='accepted') total+=(r.lastElection.results.find(x=>x.id===s.id)?.seats||0);
+          }
+          const acceptedIds=Object.entries(invitations).filter(([k,v])=>v==='accepted').map(([k])=>k);
+          const coalitionSlots=[r.pm,...acceptedIds];
+          const coalitionParties=coalitionSlots.map(id=>({id,satisfaction:id===r.pm?100:50}));
+          roomRef().update({invitations,phase:'cabinet',coalitionSlots,coalitionParties,cabinet:{}}).catch(()=>{}).finally(releaseAutomation);
+        } catch(e){ console.error('AI coalition automation failed:',e); releaseAutomation(); }
+      },700);
+    }
+    return;
+  }
+
+  if(r.phase==='cabinet' && !r.slots.find(s=>s.id===r.pm).claimedBy){
+    const noneAssigned = Object.keys(r.cabinet||{}).length===0;
+    if(noneAssigned){
+      automationBusy=true;
+      armAutomationWatchdog();
+      setTimeout(()=>{
+        try{
+          const parties=r.coalitionSlots.map(id=>({id,seats:(r.lastElection.results.find(x=>x.id===id)?.seats||0)}));
+          const totalSeats=parties.reduce((s,p)=>s+p.seats,0)||1;
+          const assigned={}; parties.forEach(p=>assigned[p.id]=0);
+          const sorted=[...MINISTRIES].sort((a,b)=>b.weight-a.weight);
+          const cabinet={};
+          sorted.forEach(m=>{
+            let best=null,bestScore=Infinity;
+            parties.forEach(p=>{ const target=p.seats/totalSeats; const ratio=target>0?(assigned[p.id]/TOTAL_WEIGHT)/target:Infinity; if(ratio<bestScore){bestScore=ratio;best=p;} });
+            cabinet[m.id]=best.id; assigned[best.id]+=m.weight;
+          });
+          const coalitionParties=computeCoalitionSatisfaction(r,cabinet);
+          const nextR={...r,cabinet,coalitionParties,usedEventIds:[]};
+          const {event,ownerSlot}=drawEventForRoom(nextR);
+          roomRef().update({cabinet,coalitionParties,phase:'governing',turn:1,usedEventIds:[],currentEffectResult:null,currentEvent:event,currentEventOwnerSlot:ownerSlot}).catch(()=>{}).finally(releaseAutomation);
+        } catch(e){ console.error('AI cabinet automation failed:',e); releaseAutomation(); }
+      },700);
+    }
+    return;
+  }
+
+  if(r.phase==='governing'){
+    const ownerSlot=r.slots.find(s=>s.id===r.currentEventOwnerSlot);
+    if(ownerSlot && !ownerSlot.claimedBy){
+      automationBusy=true;
+      armAutomationWatchdog();
+      setTimeout(()=>{
+        try{
+          if(!r.currentEffectResult){
+            const choices=r.currentEvent.choices;
+            const scored=choices.map((c,i)=>({i,score:(c.effect.trust||0)*2-(c.effect.treasury<0?Math.abs(c.effect.treasury)*0.3:0)+(Math.random()*10-5)}));
+            scored.sort((a,b)=>b.score-a.score);
+            chooseEvent(scored[0].i);
+          } else {
+            nextTurn();
+          }
+        } catch(e){ console.error('AI governing automation failed:',e); }
+        finally { releaseAutomation(); }
+      },900);
+    }
+  }
+}
+
+/* ---------- init ---------- */
+render();
+</script>
+</body>
+</html>
