@@ -1167,6 +1167,28 @@ function startNewTerm(){
   roomRef().update({phase:'campaign',term:r.term+1,slots,electionLock:false,invitations:{},pendingCollapse:false,oppositionActions:{},queuedEvent:null,deficitStreak:0});
 }
 
+function resetRoomToLobby(){
+  if(!isHost()) return;
+  if(!confirm('รีเซ็ตเกมกลับไปหน้าเลือกพรรค? ความคืบหน้าของรอบนี้จะหายทั้งหมด')) return;
+  const r=ui.room;
+  const emptyBudget={north:0,isaan:0,central:0,bangkok:0,south:0};
+  const slots=r.slots.map((s,i)=>({
+    ...s,
+    policy:{...PARTY_TEMPLATES[i].policy},
+    submitted:false,
+    budget:{...emptyBudget},
+  }));
+  const emptyPop={north:0,isaan:0,central:0,bangkok:0,south:0};
+  roomRef().update({
+    phase:'lobby', slots, term:1, treasury:200, national:{economy:50,trust:50,unrest:20},
+    popularity:Object.fromEntries(slots.map(s=>[s.id,{...emptyPop}])),
+    oppositionActions:{}, queuedEvent:null,
+    lastElection:null, pm:null, coalitionSlots:[], invitations:{}, cabinet:{}, coalitionParties:[],
+    turn:1, turnsPerTerm:16, usedEventIds:[], currentEvent:null, currentEventOwnerSlot:null, currentEffectResult:null,
+    collapsed:false, electionLock:false, pendingCollapse:false, deficitStreak:0, concededPm:[],
+  });
+}
+
 /* ---------- host-only automation for AI-controlled turns ---------- */
 let automationBusy=false;
 let automationWatchdog=null;
