@@ -1248,6 +1248,11 @@ function runHostAutomation(){
             invitations[s.id]= d<1.3 ? 'accepted' : 'declined';
             if(invitations[s.id]==='accepted') total+=(r.lastElection.results.find(x=>x.id===s.id)?.seats||0);
           }
+          if(total<MAJORITY){
+            concedePmCandidacy();
+            releaseAutomation();
+            return;
+          }
           const acceptedIds=Object.entries(invitations).filter(([k,v])=>v==='accepted').map(([k])=>k);
           const coalitionSlots=[r.pm,...acceptedIds];
           const coalitionParties=coalitionSlots.map(id=>({id,satisfaction:id===r.pm?100:50}));
