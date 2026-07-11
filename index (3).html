@@ -771,8 +771,8 @@ function handleCreateRoom(){
     popularity:Object.fromEntries(slots.map(s=>[s.id,{...emptyPop}])),
     oppositionActions:{}, queuedEvent:null,
     lastElection:null, pm:null, coalitionSlots:[], invitations:{}, cabinet:{}, coalitionParties:[],
-    turn:1, turnsPerTerm:8, usedEventIds:[], currentEvent:null, currentEventOwnerSlot:null, currentEffectResult:null,
-    collapsed:false, electionLock:false, pendingCollapse:false,
+    turn:1, turnsPerTerm:16, usedEventIds:[], currentEvent:null, currentEventOwnerSlot:null, currentEffectResult:null,
+    collapsed:false, electionLock:false, pendingCollapse:false, deficitStreak:0, concededPm:[],
   };
   db.collection(ROOMS).doc(code).set(roomData).then(()=>{
     subscribeRoom(code);
