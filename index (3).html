@@ -915,7 +915,7 @@ function proceedAfterElection(){
       const coalitionParties=[{id:winner.id,satisfaction:100}];
       t.update(roomRef(),{phase:'cabinet',pm:winner.id,coalitionSlots:[winner.id],coalitionParties,cabinet:{},invitations:{}});
     } else {
-      t.update(roomRef(),{phase:'coalition',pm:winner.id,coalitionSlots:[],coalitionParties:[],invitations:{},cabinet:{},electionLock:false});
+      t.update(roomRef(),{phase:'coalition',pm:winner.id,coalitionSlots:[],coalitionParties:[],invitations:{},cabinet:{},electionLock:false,concededPm:[]});
     }
   }));
 }
