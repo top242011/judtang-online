@@ -1447,6 +1447,84 @@ function resolveCourtCase(){
   roomRef().update(update);
 }
 
+function proposeBill(category,direction){
+  const r=ui.room; const mine=mySlot();
+  if(!mine) return;
+  const pending=r.pendingBills||[];
+  if(pending.length>=6) return;
+  if(pending.some(b=>b.proposerId===mine.id)) return;
+  const bill={
+    id:'b'+Math.random().toString(36).slice(2,9),
+    proposerId:mine.id, category, direction, stage:'amend',
+    amendments:[], respondedToAmend:[mine.id],
+    selectVotes:{}, passVotes:{},
+  };
+  roomRef().update({pendingBills:[...pending,bill]});
+}
+function otherActiveSlotIds(r,excludeId){
+  return r.slots.filter(s=>s.enabled!==false && s.id!==excludeId).map(s=>s.id);
+}
+function maybeAdvanceAmendStage(r,bill){
+  const others=otherActiveSlotIds(r,bill.proposerId);
+  const allResponded=others.every(id=>bill.respondedToAmend.includes(id));
+  if(!allResponded) return bill;
+  const intensities=[...new Set(bill.amendments.map(a=>a.intensity))];
+  return {...bill, stage: intensities.length ? 'select' : 'pass'};
+}
+function submitAmendment(billId,intensity){
+  const r=ui.room; const mine=mySlot(); if(!mine) return;
+  const bills=(r.pendingBills||[]).map(b=>{
+    if(b.id!==billId || b.proposerId===mine.id || b.respondedToAmend.includes(mine.id)) return b;
+    const updated={...b, amendments:[...b.amendments,{proposerId:mine.id,intensity}], respondedToAmend:[...b.respondedToAmend,mine.id]};
+    return maybeAdvanceAmendStage(r,updated);
+  });
+  roomRef().update({pendingBills:bills});
+}
+function passOnAmendment(billId){
+  const r=ui.room; const mine=mySlot(); if(!mine) return;
+  const bills=(r.pendingBills||[]).map(b=>{
+    if(b.id!==billId || b.proposerId===mine.id || b.respondedToAmend.includes(mine.id)) return b;
+    const updated={...b, respondedToAmend:[...b.respondedToAmend,mine.id]};
+    return maybeAdvanceAmendStage(r,updated);
+  });
+  roomRef().update({pendingBills:bills});
+}
+function castSelectVote(billId,intensity){
+  const r=ui.room; const mine=mySlot(); if(!mine) return;
+  const bills=(r.pendingBills||[]).map(b=>{
+    if(b.id!==billId || b.stage!=='select') return b;
+    const selectVotes={...b.selectVotes,[mine.id]:intensity};
+    const allVoted=r.slots.filter(s=>s.enabled!==false).every(s=>selectVotes[s.id]!==undefined);
+    if(!allVoted) return {...b,selectVotes};
+    const winner=tallySelectVote({...b,selectVotes},r.slots,r.lastElection.results,r.pm);
+    return {...b,selectVotes,selectedIntensity:winner,stage:'pass'};
+  });
+  roomRef().update({pendingBills:bills});
+}
+function castPassVote(billId,vote){
+  const r=ui.room; const mine=mySlot(); if(!mine) return;
+  let resolved=null;
+  const bills=(r.pendingBills||[]).map(b=>{
+    if(b.id!==billId || b.stage!=='pass') return b;
+    const passVotes={...b.passVotes,[mine.id]:vote};
+    const allVoted=r.slots.filter(s=>s.enabled!==false).every(s=>passVotes[s.id]!==undefined);
+    if(!allVoted) return {...b,passVotes};
+    const passed=tallyPassVote({...b,passVotes},r.slots,r.lastElection.results,r.pm);
+    resolved={bill:{...b,passVotes},passed};
+    return {...b,passVotes,stage:'done'};
+  });
+  const update={pendingBills:bills.filter(b=>b.stage!=='done')};
+  if(resolved){
+    const intensity=resolved.bill.selectedIntensity || (resolved.bill.amendments.length?resolved.bill.amendments[0].intensity:'mild');
+    if(resolved.passed){
+      update.activeLaws={...r.activeLaws,[resolved.bill.category]:{direction:resolved.bill.direction,intensity,proposerId:resolved.bill.proposerId}};
+    } else if(r.coalitionParties.some(p=>p.id===resolved.bill.proposerId)){
+      update.national={...r.national,trust:clamp(r.national.trust-2)};
+    }
+  }
+  roomRef().update(update);
+}
+
 function nextTurn(){
   const r=ui.room;
   if(r.pendingPmDisqualification){
