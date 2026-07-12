@@ -1135,11 +1135,18 @@ function computeCoalitionSatisfaction(r,cabinet){
 }
 function confirmCabinet(){
   const r=ui.room;
+  const isReshuffle=!!r.midTermReshuffle;
   const coalitionParties=computeCoalitionSatisfaction(r,r.cabinet);
-  const nextR={...r,coalitionParties,usedEventIds:[]};
+  const nextR={...r,coalitionParties,usedEventIds:isReshuffle?r.usedEventIds:[]};
   const {event,ownerSlot}=drawEventForRoom(nextR);
   stampAndThen('แต่งตั้งแล้ว',()=>{
-    roomRef().update({phase:'governing',coalitionParties,turn:1,usedEventIds:[],currentEffectResult:null,currentEvent:event,currentEventOwnerSlot:ownerSlot,decisionHistory:[],noConfidenceVotes:{}});
+    roomRef().update({
+      phase:'governing', coalitionParties,
+      turn: isReshuffle ? r.turn : 1,
+      usedEventIds: isReshuffle ? r.usedEventIds : [],
+      currentEffectResult:null, currentEvent:event, currentEventOwnerSlot:ownerSlot,
+      decisionHistory:[], noConfidenceVotes:{}, midTermReshuffle:false,
+    });
   });
 }
 
@@ -1381,6 +1388,22 @@ function resolveCourtCase(){
 
 function nextTurn(){
   const r=ui.room;
+  if(r.pendingPmDisqualification){
+    const disqualifiedId=r.pendingPmDisqualification.targetId;
+    const concededPm=[disqualifiedId];
+    const next=nextPmCandidate({...r,concededPm});
+    if(!next){
+      roomRef().update({collapsed:true,phase:'term_summary',pendingPmDisqualification:null});
+      return;
+    }
+    if(next.seats>=MAJORITY){
+      const coalitionParties=[{id:next.id,satisfaction:100}];
+      roomRef().update({phase:'cabinet',pm:next.id,coalitionSlots:[next.id],coalitionParties,cabinet:{},invitations:{},concededPm,pendingPmDisqualification:null,midTermReshuffle:true});
+    } else {
+      roomRef().update({phase:'coalition',pm:next.id,coalitionSlots:[],coalitionParties:[],invitations:{},cabinet:{},concededPm,pendingPmDisqualification:null,midTermReshuffle:true});
+    }
+    return;
+  }
   if(r.pendingCollapse){
     roomRef().update({collapsed:true,phase:'term_summary',treasury:Math.max(0,r.treasury-10)});
     return;
@@ -1504,10 +1527,17 @@ function runHostAutomation(){
             parties.forEach(p=>{ const target=p.seats/totalSeats; const ratio=target>0?(assigned[p.id]/TOTAL_WEIGHT)/target:Infinity; if(ratio<bestScore){bestScore=ratio;best=p;} });
             cabinet[m.id]=best.id; assigned[best.id]+=m.weight;
           });
+          const isReshuffle=!!r.midTermReshuffle;
           const coalitionParties=computeCoalitionSatisfaction(r,cabinet);
-          const nextR={...r,cabinet,coalitionParties,usedEventIds:[]};
+          const nextR={...r,cabinet,coalitionParties,usedEventIds:isReshuffle?r.usedEventIds:[]};
           const {event,ownerSlot}=drawEventForRoom(nextR);
-          roomRef().update({cabinet,coalitionParties,phase:'governing',turn:1,usedEventIds:[],currentEffectResult:null,currentEvent:event,currentEventOwnerSlot:ownerSlot,decisionHistory:[],noConfidenceVotes:{}}).catch(()=>{}).finally(releaseAutomation);
+          roomRef().update({
+            cabinet,coalitionParties,phase:'governing',
+            turn: isReshuffle ? r.turn : 1,
+            usedEventIds: isReshuffle ? r.usedEventIds : [],
+            currentEffectResult:null,currentEvent:event,currentEventOwnerSlot:ownerSlot,
+            decisionHistory:[],noConfidenceVotes:{},midTermReshuffle:false,
+          }).catch(()=>{}).finally(releaseAutomation);
         } catch(e){ console.error('AI cabinet automation failed:',e); releaseAutomation(); }
       },700);
     }
