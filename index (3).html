@@ -655,7 +655,7 @@ PHASE_TEMPLATES.campaign=function(){
       ${REGIONS.map(reg=>`<tr>
         <td><span class="region-name">${reg.name}</span></td>
         <td class="mono">${reg.seats}</td>
-        <td><span class="region-tags">${regionLeaningLabel(reg)}</span></td>
+        <td><span class="region-tags">${regionLeaningLabel({...reg,leaning:regionLeaningFor(r,reg.id)})}</span></td>
         <td><div class="stepper">
           <button onclick="adjustDraftBudget('${reg.id}',-5)">−</button>
           <span class="amt">${draft.budget[reg.id]}</span>
@@ -1033,13 +1033,15 @@ function submitCampaign(){
 }
 
 /* ---------- election calc (multiplayer, run by transaction) ---------- */
-function computeElectionFromSlots(slots,popularityBySlot){
+function computeElectionFromSlots(slots,popularityBySlot,regionLeaning){
   popularityBySlot=popularityBySlot||{};
+  regionLeaning=regionLeaning||{};
+  const leaningOf=regId=>regionLeaning[regId]||REGIONS.find(x=>x.id===regId).leaning;
   const parties=slots.map(slot=>{
     let budget=slot.budget;
     if(!slot.claimedBy){
       const base={}; let sum=0;
-      REGIONS.forEach(reg=>{ const d=policyDistance(slot.policy,reg.leaning); const a=Math.max(5,100-d*70); base[reg.id]=a; sum+=a; });
+      REGIONS.forEach(reg=>{ const d=policyDistance(slot.policy,leaningOf(reg.id)); const a=Math.max(5,100-d*70); base[reg.id]=a; sum+=a; });
       budget={}; REGIONS.forEach(reg=>{ budget[reg.id]=Math.round(100*base[reg.id]/sum); });
     }
     return {id:slot.id,name:slot.name,color:slot.color,policy:slot.policy,budget};
@@ -1047,7 +1049,7 @@ function computeElectionFromSlots(slots,popularityBySlot){
   const regionSeats={}; const totals={}; parties.forEach(p=>totals[p.id]=0);
   REGIONS.forEach(reg=>{
     const appeals=parties.map(p=>{
-      const d=policyDistance(p.policy,reg.leaning);
+      const d=policyDistance(p.policy,leaningOf(reg.id));
       let a=Math.max(3,100-d*55);
       const alloc=p.budget[reg.id]||0;
       a+=Math.sqrt(Math.max(0,alloc))*3;
@@ -1084,7 +1086,7 @@ function maybeRunElection(){
       if(data.phase!=='campaign'||data.electionLock) return;
       const humans2=data.slots.filter(s=>s.claimedBy);
       if(!humans2.every(s=>s.submitted)) return;
-      const lastElection=computeElectionFromSlots(data.slots,data.popularity);
+      const lastElection=computeElectionFromSlots(data.slots,data.popularity,data.regionLeaning);
       t.update(roomRef(),{electionLock:true,lastElection,phase:'election_result'});
     });
   });
@@ -1255,6 +1257,61 @@ function drawEventForRoom(r){
   return {event,ownerSlot};
 }
 
+// activeLaws' region-leaning drift is per-room and permanent, but REGIONS
+// is a single module-level constant shared by every room open in this
+// browser tab — mutating REGIONS.leaning directly would leak one room's
+// legislative history into every other room. r.regionLeaning is the
+// per-room override; every leaning read falls back to the REGIONS default
+// when a room has no drift recorded yet for that region.
+function regionLeaningFor(r,regId){
+  const reg=REGIONS.find(x=>x.id===regId);
+  return (r.regionLeaning && r.regionLeaning[regId]) || reg.leaning;
+}
+// Split from the debt step below on purpose: computeDeficitCrisis (existing
+// fiscal-crisis feature) must still see a treasury that's allowed to go
+// negative, or converting shortfall into debt here first would silently
+// disable that escalating-penalty mechanic for every room.
+function applyActiveLawEffects(r){
+  let treasury=r.treasury, national={...r.national};
+  const popularity={}; Object.keys(r.popularity||{}).forEach(k=>{ popularity[k]={...(r.popularity[k]||{})}; });
+  const regionLeaning={}; REGIONS.forEach(reg=>{ regionLeaning[reg.id]={...regionLeaningFor(r,reg.id)}; });
+  ['fiscal','social','security'].forEach(cat=>{
+    const law=r.activeLaws && r.activeLaws[cat];
+    if(!law) return;
+    const eff=computeBillMagnitude(cat,law.intensity,law.direction);
+    if(eff.treasury) treasury+=eff.treasury;
+    if(eff.economy) national.economy=clamp(national.economy+eff.economy);
+    if(eff.trust) national.trust=clamp(national.trust+eff.trust);
+    if(eff.unrest) national.unrest=clamp(national.unrest+eff.unrest);
+    if(eff.regions){
+      const proposerSlot=r.slots.find(s=>s.id===law.proposerId);
+      if(proposerSlot){
+        popularity[law.proposerId]=popularity[law.proposerId]||{north:0,isaan:0,central:0,bangkok:0,south:0};
+        let bestReg=REGIONS[0],bestFit=-Infinity;
+        REGIONS.forEach(reg=>{ const d=policyDistance(proposerSlot.policy,regionLeaning[reg.id]); const fit=-d; if(fit>bestFit){bestFit=fit;bestReg=reg;} });
+        popularity[law.proposerId][bestReg.id]=clamp((popularity[law.proposerId][bestReg.id]||0)+eff.regions,-60,60);
+      }
+    }
+    if(cat==='fiscal'||cat==='security'){
+      const axis=cat==='fiscal'?'economy':'security';
+      const delta=0.3*(law.direction<0?-1:1);
+      REGIONS.forEach(reg=>{ regionLeaning[reg.id][axis]=clamp(regionLeaning[reg.id][axis]+delta,-100,100); });
+    }
+  });
+  return {treasury,national,popularity,regionLeaning};
+}
+// Applied AFTER computeDeficitCrisis has already seen (and reacted to) a
+// possibly-negative treasury, so debt absorbs the shortfall without
+// masking the existing crisis mechanic.
+function applyPublicDebt(treasury,publicDebt,activeLaws){
+  publicDebt=publicDebt||0;
+  if(treasury<0){ publicDebt+=-treasury; treasury=0; }
+  treasury=Math.max(0,treasury-Math.round(publicDebt*0.02));
+  const fiscalLaw=activeLaws&&activeLaws.fiscal;
+  if(fiscalLaw && fiscalLaw.direction<0 && fiscalLaw.intensity==='aggressive'){ publicDebt=Math.max(0,publicDebt-8); }
+  return {treasury,publicDebt};
+}
+
 // Opposition parties don't sit idle: each turn they passively pick up a
 // little of their own regional standing, scaled by how badly the
 // government's national numbers are trending. Distributed across their
@@ -1267,7 +1324,7 @@ function computeOppositionDrift(r,newNational){
   const drift={};
   oppSlots.forEach(s=>{
     const base={}; let sum=0;
-    REGIONS.forEach(reg=>{ const d=policyDistance(s.policy,reg.leaning); const a=Math.max(5,100-d*70); base[reg.id]=a; sum+=a; });
+    REGIONS.forEach(reg=>{ const d=policyDistance(s.policy,regionLeaningFor(r,reg.id)); const a=Math.max(5,100-d*70); base[reg.id]=a; sum+=a; });
     const gain={};
     REGIONS.forEach(reg=>{ gain[reg.id]=discontent*4*(base[reg.id]/sum); });
     drift[s.id]=gain;
@@ -1543,18 +1600,22 @@ function nextTurn(){
     }
     return;
   }
+  const lawEff=applyActiveLawEffects(r);
   if(r.pendingCollapse){
-    roomRef().update({collapsed:true,phase:'term_summary',treasury:Math.max(0,r.treasury-10)});
+    const debt=applyPublicDebt(Math.max(0,lawEff.treasury-10),r.publicDebt,r.activeLaws);
+    roomRef().update({collapsed:true,phase:'term_summary',treasury:debt.treasury,national:lawEff.national,popularity:lawEff.popularity,regionLeaning:lawEff.regionLeaning,publicDebt:debt.publicDebt,pendingBills:[]});
     return;
   }
   if(r.turn>=r.turnsPerTerm){
-    roomRef().update({collapsed:false,phase:'term_summary'});
+    const debt=applyPublicDebt(lawEff.treasury,r.publicDebt,r.activeLaws);
+    roomRef().update({collapsed:false,phase:'term_summary',treasury:debt.treasury,national:lawEff.national,popularity:lawEff.popularity,regionLeaning:lawEff.regionLeaning,publicDebt:debt.publicDebt,pendingBills:[]});
     return;
   }
-  const crisis=computeDeficitCrisis(r.treasury,r.deficitStreak||0,r.national);
-  const nextR={...r,turn:r.turn+1,national:crisis.national};
+  const crisis=computeDeficitCrisis(lawEff.treasury,r.deficitStreak||0,lawEff.national);
+  const debt=applyPublicDebt(lawEff.treasury,r.publicDebt,r.activeLaws);
+  const nextR={...r,turn:r.turn+1,national:crisis.national,treasury:debt.treasury,popularity:lawEff.popularity,regionLeaning:lawEff.regionLeaning,publicDebt:debt.publicDebt};
   const {event,ownerSlot}=drawEventForRoom(nextR);
-  roomRef().update({turn:r.turn+1,national:crisis.national,deficitStreak:crisis.deficitStreak,currentEvent:event,currentEventOwnerSlot:ownerSlot,currentEffectResult:null,queuedEvent:null,noConfidenceVotes:{}});
+  roomRef().update({turn:r.turn+1,national:crisis.national,deficitStreak:crisis.deficitStreak,currentEvent:event,currentEventOwnerSlot:ownerSlot,currentEffectResult:null,queuedEvent:null,noConfidenceVotes:{},treasury:debt.treasury,popularity:lawEff.popularity,regionLeaning:lawEff.regionLeaning,publicDebt:debt.publicDebt,pendingBills:[]});
 }
 
 function startNewTerm(){
