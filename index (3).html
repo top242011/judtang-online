@@ -195,6 +195,9 @@ function countBadDecisions(decisionHistory){
 function countGuiltyIncidents(corruptionIncidents,targetId){
   return (corruptionIncidents||[]).filter(d=>d.targetId===targetId && d.choiceIndex===1).length;
 }
+function computeCourtVerdictProbability(corruptionIncidents,targetId){
+  return clamp(0.4+0.15*countGuiltyIncidents(corruptionIncidents,targetId),0,0.95);
+}
 function computeNoConfidenceEffect(baseEffect,choiceIdx,decisionHistory){
   const badCount=countBadDecisions(decisionHistory);
   const eff={...baseEffect};
@@ -1144,6 +1147,18 @@ function confirmCabinet(){
 function drawEventForRoom(r){
   if(r.queuedEvent){
     const filerSlot=r.slots.find(s=>s.id===r.queuedEvent.filedBy);
+    if(r.queuedEvent.type==='courtcase'){
+      const targetSlot=r.slots.find(s=>s.id===r.queuedEvent.targetId);
+      const event={
+        id:'courtcase',
+        title:'ศาลรัฐธรรมนูญวินิจฉัยคดี'+(targetSlot?targetSlot.name:''),
+        desc:`${filerSlot?filerSlot.name:'ฝ่ายค้าน'}ยื่นคำร้องต่อศาลรัฐธรรมนูญให้วินิจฉัยกรณีทุจริตของ${targetSlot?targetSlot.name:'พรรคที่ถูกกล่าวหา'} ศาลรับคำร้องไว้พิจารณาแล้ว`,
+        choices:[{label:'รับทราบคำวินิจฉัยของศาล',desc:'ศาลได้พิจารณาและมีคำวินิจฉัยแล้ว',effect:{}}],
+        _filedBy:r.queuedEvent.filedBy,
+        _courtPetition:{targetId:r.queuedEvent.targetId},
+      };
+      return {event,ownerSlot:r.pm};
+    }
     const base=EVENTS.find(e=>e.id==='noconf');
     const event={
       ...base,
@@ -1204,6 +1219,7 @@ function computeOppositionDrift(r,newNational){
 function chooseEvent(choiceIdx){
   const r=ui.room;
   const ev=r.currentEvent;
+  if(ev.id==='courtcase'){ resolveCourtCase(); return; }
   const choice=ev.choices[choiceIdx];
   let eff=choice.effect;
   if(ev.id==='noconf'){
@@ -1332,6 +1348,35 @@ function tallyNoConfidenceWinner(r){
 function resolveNoConfidenceVote(){
   const r=ui.room;
   chooseEvent(tallyNoConfidenceWinner(r));
+}
+function resolveCourtCase(){
+  const r=ui.room;
+  const ev=r.currentEvent;
+  const targetId=ev._courtPetition.targetId;
+  const filedBy=ev._filedBy;
+  const targetSlot=r.slots.find(s=>s.id===targetId);
+  const guilty=Math.random()<computeCourtVerdictProbability(r.corruptionIncidents,targetId);
+  const update={usedEventIds:r.usedEventIds,queuedEvent:null};
+  if(guilty){
+    if(targetId===r.pm){
+      update.pendingPmDisqualification={targetId};
+      update.currentEffectResult={text:`ศาลรัฐธรรมนูญวินิจฉัยว่า ${targetSlot?targetSlot.name:''} มีความผิดจริง ต้องพ้นจากตำแหน่งนายกรัฐมนตรีทันที`,tags:[{sign:'neg',text:'นายกรัฐมนตรีพ้นจากตำแหน่ง'}]};
+    } else {
+      const cabinet={...r.cabinet};
+      Object.keys(cabinet).forEach(mid=>{ if(cabinet[mid]===targetId) delete cabinet[mid]; });
+      update.cabinet=cabinet;
+      update.coalitionParties=computeCoalitionSatisfaction({...r,cabinet},cabinet);
+      update.currentEffectResult={text:`ศาลรัฐธรรมนูญวินิจฉัยว่า ${targetSlot?targetSlot.name:''} มีความผิดจริง เสียตำแหน่งรัฐมนตรีทันที`,tags:[{sign:'neg',text:`${targetSlot?targetSlot.name:''} เสียตำแหน่งรัฐมนตรี`}]};
+    }
+  } else {
+    const filerSlot=r.slots.find(s=>s.id===filedBy);
+    const popularity={}; Object.keys(r.popularity||{}).forEach(k=>{ popularity[k]={...(r.popularity[k]||{})}; });
+    popularity[filedBy]=popularity[filedBy]||{north:0,isaan:0,central:0,bangkok:0,south:0};
+    REGIONS.forEach(reg=>{ popularity[filedBy][reg.id]=clamp((popularity[filedBy][reg.id]||0)-8,-60,60); });
+    update.popularity=popularity;
+    update.currentEffectResult={text:`ศาลรัฐธรรมนูญยกคำร้อง — ${targetSlot?targetSlot.name:''} ไม่มีความผิด`,tags:[{sign:'neg',text:`ความนิยม ${filerSlot?filerSlot.name:'ผู้ยื่น'} -8`}]};
+  }
+  roomRef().update(update);
 }
 
 function nextTurn(){
