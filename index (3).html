@@ -208,6 +208,43 @@ function computeNoConfidenceEffect(baseEffect,choiceIdx,decisionHistory){
   }
   return eff;
 }
+
+const BILL_MAGNITUDE={
+  fiscal:{mild:{treasury:5,economy:1},moderate:{treasury:10,economy:2},aggressive:{treasury:18,economy:4,trust:-2}},
+  social:{mild:{trust:3,unrest:-2},moderate:{trust:6,unrest:-4},aggressive:{trust:10,unrest:-7,satisfactionAll:3}},
+  security:{mild:{unrest:-3},moderate:{unrest:-6,trust:2},aggressive:{unrest:-10,trust:4,regions:5}},
+};
+function computeBillMagnitude(category,intensity,direction){
+  const base=BILL_MAGNITUDE[category][intensity];
+  const eff={};
+  Object.keys(base).forEach(k=>{ eff[k]=base[k]*(direction<0?-1:1); });
+  return eff;
+}
+function tallySelectVote(bill,slots,lastElectionResults,pmId){
+  const seatsOf=id=>(lastElectionResults.find(x=>x.id===id)?.seats||0);
+  const totals={};
+  Object.entries(bill.selectVotes||{}).forEach(([voterId,intensity])=>{
+    totals[intensity]=(totals[intensity]||0)+seatsOf(voterId);
+  });
+  const entries=Object.entries(totals);
+  if(!entries.length) return null;
+  let best=entries[0], tied=[entries[0]];
+  entries.forEach(e=>{ if(e[1]>best[1]){ best=e; tied=[e]; } else if(e[1]===best[1] && e!==best) tied.push(e); });
+  if(tied.length>1){
+    const pmVote=bill.selectVotes[pmId];
+    if(pmVote && tied.some(t=>t[0]===pmVote)) return pmVote;
+  }
+  return best[0];
+}
+function tallyPassVote(bill,slots,lastElectionResults,pmId){
+  const seatsOf=id=>(lastElectionResults.find(x=>x.id===id)?.seats||0);
+  let yes=0,no=0;
+  Object.entries(bill.passVotes||{}).forEach(([voterId,v])=>{
+    if(v==='yes') yes+=seatsOf(voterId); else no+=seatsOf(voterId);
+  });
+  if(yes===no){ return bill.passVotes[pmId]==='yes'; }
+  return yes>no;
+}
 function genRoomCode(){
   const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let s=''; for(let i=0;i<4;i++) s+=chars[Math.floor(Math.random()*chars.length)];
