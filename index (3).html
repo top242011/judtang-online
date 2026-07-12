@@ -794,6 +794,9 @@ PHASE_TEMPLATES.governing=function(){
   const usedMotion = mine && r.oppositionActions?.[mine.id]?.noConfidenceUsedThisTerm;
   const motionPending = !!r.queuedEvent || (ev && ev._filedBy);
   const canFileMotion = isOpposition && !usedMotion && !motionPending;
+  const eligibleCourtTargets = r.slots.filter(s=>countGuiltyIncidents(r.corruptionIncidents,s.id)>=1);
+  const usedCourtPetition = mine && r.oppositionActions?.[mine.id]?.courtPetitionUsedThisTerm;
+  const canFileCourtPetition = isOpposition && !usedCourtPetition && !motionPending;
 
   return `
   ${topbar()}${breadcrumb('governing')}
@@ -817,6 +820,11 @@ PHASE_TEMPLATES.governing=function(){
         <div style="font-size:12.5px;color:var(--muted-on-navy);margin-bottom:10px;">พรรคของคุณสะสมความนิยมเองจากผลงานรัฐบาล — ยิ่งรัฐบาลบริหารแย่ พรรคคุณยิ่งได้เปรียบตอนเลือกตั้งครั้งหน้า</div>
         <button class="btn btn-ghost" style="width:100%;" ${canFileMotion?'':'disabled'} onclick="fileNoConfidence()">ยื่นอภิปรายไม่ไว้วางใจ</button>
         <div style="font-size:11px;color:var(--muted-on-navy);margin-top:6px;">${usedMotion?'ใช้สิทธิ์ในสมัยนี้ไปแล้ว':(motionPending?'มีญัตติค้างอยู่ในคิว':'ใช้ได้ 1 ครั้งต่อสมัย — บีบให้รัฐบาลตอบคำถามในสภา')}</div>
+        <div style="margin-top:14px;border-top:1px solid var(--navy-line);padding-top:12px;">
+          <div style="font-size:12.5px;color:var(--muted-on-navy);margin-bottom:8px;">ยื่นคำร้องต่อศาลรัฐธรรมนูญวินิจฉัยกรณีทุจริตที่มีมูล</div>
+          ${eligibleCourtTargets.length?eligibleCourtTargets.map(t=>`<button class="btn btn-ghost" style="width:100%;margin-bottom:6px;" ${canFileCourtPetition?'':'disabled'} onclick="fileCourtPetition('${t.id}')">ยื่นคำร้องต่อ ${t.name}</button>`).join(''):'<div style="font-size:11px;color:var(--muted-on-navy);">ยังไม่มีพรรคใดมีมูลทุจริตให้ยื่นคำร้องได้</div>'}
+          ${eligibleCourtTargets.length?`<div style="font-size:11px;color:var(--muted-on-navy);margin-top:4px;">${usedCourtPetition?'ใช้สิทธิ์ในสมัยนี้ไปแล้ว':(motionPending?'มีคำร้อง/ญัตติค้างอยู่ในคิว':'ใช้ได้ 1 ครั้งต่อสมัย')}</div>`:''}
+        </div>
       </div>`:''}
     </div>
     <div>
