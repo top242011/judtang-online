@@ -820,6 +820,56 @@ PHASE_TEMPLATES.cabinet=function(){
   `;
 };
 
+function billCategoryLabel(cat){ return cat==='fiscal'?'การคลัง':cat==='social'?'สังคม':'ความมั่นคง'; }
+function billCard(r,mine,bill){
+  const proposer=r.slots.find(s=>s.id===bill.proposerId);
+  const dirLabel=bill.direction>0?'ขยาย':'รัดกุม';
+  let body='';
+  if(bill.stage==='amend'){
+    const responded=mine && bill.respondedToAmend.includes(mine.id);
+    const activeCount=r.slots.filter(s=>s.enabled!==false).length-1;
+    body = mine && mine.id!==bill.proposerId && !responded
+      ? `<div class="btn-row">
+          ${['mild','moderate','aggressive'].map(i=>`<button class="btn btn-ghost-dark" onclick="submitAmendment('${bill.id}','${i}')">แก้เป็น ${i}</button>`).join('')}
+          <button class="btn btn-ghost-dark" onclick="passOnAmendment('${bill.id}')">ไม่แก้ไข</button>
+        </div>`
+      : `<div class="tag medium">รอพรรคอื่นตอบสนอง (${bill.respondedToAmend.length}/${activeCount})</div>`;
+  } else if(bill.stage==='select'){
+    const voted=mine && bill.selectVotes[mine.id]!==undefined;
+    const options=[...new Set(bill.amendments.map(a=>a.intensity))];
+    body = mine && !voted
+      ? `<div class="btn-row">${options.map(i=>`<button class="btn btn-ghost-dark" onclick="castSelectVote('${bill.id}','${i}')">เลือก ${i}</button>`).join('')}</div>`
+      : `<div class="tag medium">โหวตเลือกเวอร์ชันแล้ว</div>`;
+  } else if(bill.stage==='pass'){
+    const voted=mine && bill.passVotes[mine.id]!==undefined;
+    body = mine && !voted
+      ? `<div class="btn-row"><button class="btn btn-stamp" onclick="castPassVote('${bill.id}','yes')">เห็นชอบ</button><button class="btn btn-ghost-dark" onclick="castPassVote('${bill.id}','no')">ไม่เห็นชอบ</button></div>`
+      : `<div class="tag medium">โหวตผ่านแล้ว</div>`;
+  }
+  return `<div class="doc-card"><strong>${proposer?proposer.name:''}</strong> เสนอร่างกฎหมาย${billCategoryLabel(bill.category)} (${dirLabel})<div class="doc-sub">สถานะ: ${bill.stage}</div>${body}</div>`;
+}
+function billsPanel(r){
+  const mine=mySlot();
+  const canPropose = mine && !(r.pendingBills||[]).some(b=>b.proposerId===mine.id) && (r.pendingBills||[]).length<6;
+  const proposeUI = canPropose ? `
+    <div class="btn-row">
+      ${['fiscal','social','security'].map(cat=>`
+        <button class="btn btn-ghost-dark" onclick="proposeBill('${cat}',1)">เสนอ${billCategoryLabel(cat)} (ขยาย)</button>
+        <button class="btn btn-ghost-dark" onclick="proposeBill('${cat}',-1)">เสนอ${billCategoryLabel(cat)} (รัดกุม)</button>
+      `).join('')}
+    </div>` : '';
+  const activeLawsText = ['fiscal','social','security'].map(cat=>{
+    const law=r.activeLaws && r.activeLaws[cat];
+    return `${billCategoryLabel(cat)}: ${law?`${law.direction>0?'ขยาย':'รัดกุม'} (${law.intensity})`:'ไม่มี'}`;
+  }).join(' · ');
+  return `<div class="doc">
+    <h3>ร่างกฎหมาย</h3>
+    <div class="doc-sub">กฎหมายบังคับใช้อยู่: ${activeLawsText} &middot; หนี้สาธารณะ: ${Math.round(r.publicDebt||0)}</div>
+    ${proposeUI}
+    ${(r.pendingBills||[]).map(b=>billCard(r,mine,b)).join('')}
+  </div>`;
+}
+
 PHASE_TEMPLATES.governing=function(){
   const r=ui.room; const mine=mySlot();
   const ev=r.currentEvent;
@@ -883,6 +933,7 @@ PHASE_TEMPLATES.governing=function(){
           ${ev.choices.map((c,i)=>`<button class="event-choice" onclick="chooseEvent(${i})"><span class="clabel">${c.label}</span><span class="cdesc">${c.desc}</span></button>`).join('')}
         `:`<div class="waiting-box">รอ ${ownerSlot.name}${ownerSlot.claimedBy?'':' (AI)'} ตัดสินใจ...</div>`))}
       </div>
+      ${billsPanel(r)}
     </div>
   </div>
   `;
