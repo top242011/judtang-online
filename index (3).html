@@ -810,6 +810,7 @@ PHASE_TEMPLATES.governing=function(){
       </div>
       <div class="panel-dark"><h3 style="margin-top:0;font-size:14px;">พรรคร่วมรัฐบาล</h3>
         ${r.coalitionParties.filter(p=>p.id!==r.pm).map(p=>{const s=r.slots.find(x=>x.id===p.id); return gauge(s.name,p.satisfaction);}).join('') || '<div style="font-size:12.5px;color:var(--muted-on-navy);">ปกครองเสียงข้างมากเดี่ยว</div>'}
+        ${mine && mine.id===r.pm?`<button class="btn btn-ghost" style="width:100%;margin-top:10px;" onclick="dissolveParliament()">ยุบสภา</button>`:''}
       </div>
       <div class="panel-dark"><h3 style="margin-top:0;font-size:14px;">${popLabel}</h3>
         ${REGIONS.map(reg=>gauge(reg.name, clamp(50+(popFor(popSlotId)[reg.id]||0),0,100))).join('')}
@@ -850,8 +851,8 @@ PHASE_TEMPLATES.term_summary=function(){
   return `
   ${topbar()}
   <div class="panel-dark" style="text-align:center;margin-top:24px;">
-    <div class="term-badge">${collapsed?'รัฐบาลสิ้นสุดก่อนกำหนด':'ครบวาระการดำรงตำแหน่ง'}</div>
-    <h1 class="serif" style="font-size:24px;margin:10px 0;">${collapsed?'รัฐบาลล่ม — พรรคร่วมถอนตัว':'สิ้นสุดสมัยที่ '+r.term}</h1>
+    <div class="term-badge">${r.dissolvedByPm?'PM ประกาศยุบสภา':(collapsed?'รัฐบาลสิ้นสุดก่อนกำหนด':'ครบวาระการดำรงตำแหน่ง')}</div>
+    <h1 class="serif" style="font-size:24px;margin:10px 0;">${r.dissolvedByPm?'ยุบสภา — เข้าสู่การเลือกตั้งใหม่':(collapsed?'รัฐบาลล่ม — พรรคร่วมถอนตัว':'สิ้นสุดสมัยที่ '+r.term)}</h1>
   </div>
   <div class="doc">
     <h2>สรุปผลการบริหารประเทศ</h2>
@@ -863,7 +864,7 @@ PHASE_TEMPLATES.term_summary=function(){
         <p><strong>งบประมาณแผ่นดินคงเหลือ:</strong> ฿${fmt(r.treasury)} ล้านบาท</p>
       </div>
       <div>
-        <p style="font-size:13px;color:var(--ink-soft);">${collapsed?'ความไม่พอใจของพรรคร่วมรัฐบาลสะสมจนถอนตัว ทำให้เสียงในสภาไม่ถึงกึ่งหนึ่ง รัฐบาลจึงสิ้นสุดลงก่อนครบวาระ':'รัฐบาลบริหารประเทศครบวาระ มีการยุบสภาเพื่อจัดการเลือกตั้งใหม่'}</p>
+        <p style="font-size:13px;color:var(--ink-soft);">${r.dissolvedByPm?'นายกรัฐมนตรีใช้อำนาจยุบสภาก่อนครบวาระ เพื่อจัดการเลือกตั้งใหม่ตามที่เห็นสมควร':(collapsed?'ความไม่พอใจของพรรคร่วมรัฐบาลสะสมจนถอนตัว ทำให้เสียงในสภาไม่ถึงกึ่งหนึ่ง รัฐบาลจึงสิ้นสุดลงก่อนครบวาระ':'รัฐบาลบริหารประเทศครบวาระ มีการยุบสภาเพื่อจัดการเลือกตั้งใหม่')}</p>
       </div>
     </div>
     <div class="btn-row"><button class="btn btn-stamp" onclick="startNewTerm()">จัดการเลือกตั้งใหม่ &raquo;</button></div>
@@ -1314,6 +1315,15 @@ function chooseEvent(choiceIdx){
   } else { update.pendingCollapse=false; }
 
   roomRef().update(update);
+}
+
+function dissolveParliament(){
+  const r=ui.room; const mine=mySlot();
+  if(!mine || mine.id!==r.pm) return;
+  if(!confirm('ยืนยันยุบสภา? สมัยนี้จะสิ้นสุดทันทีและเข้าสู่การเลือกตั้งใหม่')) return;
+  stampAndThen('ยุบสภาแล้ว',()=>{
+    roomRef().update({phase:'term_summary',collapsed:false,dissolvedByPm:true});
+  });
 }
 
 function fileNoConfidence(){
