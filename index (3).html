@@ -1450,6 +1450,38 @@ function runHostAutomation(){
   }
 
   if(r.phase==='governing'){
+    if(r.currentEvent && r.currentEvent.id==='noconf' && !r.currentEffectResult){
+      const votes=r.noConfidenceVotes||{};
+      const missingAiVoter=r.coalitionSlots.map(id=>r.slots.find(s=>s.id===id)).find(s=>s&&!s.claimedBy&&votes[s.id]===undefined);
+      if(missingAiVoter){
+        automationBusy=true;
+        armAutomationWatchdog();
+        setTimeout(()=>{
+          try{
+            const choices=r.currentEvent.choices;
+            const scored=choices.map((c,i)=>{
+              const eff=computeNoConfidenceEffect(c.effect,i,r.decisionHistory);
+              return {i,score:(eff.trust||0)*2-(eff.treasury<0?Math.abs(eff.treasury)*0.3:0)+(Math.random()*10-5)};
+            });
+            scored.sort((a,b)=>b.score-a.score);
+            castNoConfidenceVote(scored[0].i,missingAiVoter.id);
+          } catch(e){ console.error('AI no-confidence vote failed:',e); }
+          finally { releaseAutomation(); }
+        },700);
+        return;
+      }
+      const allVoted=r.coalitionSlots.every(id=>votes[id]!==undefined);
+      if(allVoted){
+        automationBusy=true;
+        armAutomationWatchdog();
+        setTimeout(()=>{
+          try{ resolveNoConfidenceVote(); }
+          catch(e){ console.error('No-confidence vote resolution failed:',e); }
+          finally { releaseAutomation(); }
+        },500);
+      }
+      return;
+    }
     const ownerSlot=r.slots.find(s=>s.id===r.currentEventOwnerSlot);
     if(ownerSlot && !ownerSlot.claimedBy){
       automationBusy=true;
