@@ -189,6 +189,19 @@ function computeDeficitCrisis(treasury,deficitStreak,national){
   }
   return {deficitStreak:0,national:{...national}};
 }
+function countBadDecisions(decisionHistory){
+  return (decisionHistory||[]).filter(d=>d.trustDelta<0).length;
+}
+function computeNoConfidenceEffect(baseEffect,choiceIdx,decisionHistory){
+  const badCount=countBadDecisions(decisionHistory);
+  const eff={...baseEffect};
+  if(choiceIdx===0){
+    eff.trust=Math.max(0,(eff.trust||0)-badCount);
+  } else {
+    eff.trust=(eff.trust||0)-badCount*2;
+  }
+  return eff;
+}
 function genRoomCode(){
   const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let s=''; for(let i=0;i<4;i++) s+=chars[Math.floor(Math.random()*chars.length)];
@@ -779,6 +792,7 @@ PHASE_TEMPLATES.governing=function(){
         <h2>${ev.title} ${isMyTurn?'<span class="turn-badge">ตาของคุณ</span>':''}</h2>
         <div class="doc-sub">ไตรมาสที่ ${r.turn} / ${r.turnsPerTerm} &middot; สมัยที่ ${r.term} &middot; ผู้ตัดสินใจ: ${ownerSlot.name}${ownerSlot.claimedBy?'':' (AI)'}${ev._filedBy?' &middot; ยื่นโดย '+(r.slots.find(s=>s.id===ev._filedBy)?.name||''):''}</div>
         <p style="font-size:14px;line-height:1.7;">${ev.desc}</p>
+        ${ev.id==='noconf'&&!result?`<div class="tag far" style="display:inline-block;margin-bottom:10px;">ประวัติการตัดสินใจที่กระทบความเชื่อมั่นเชิงลบ: ${countBadDecisions(r.decisionHistory)} ครั้ง</div>`:''}
         ${result?`
           <div class="result-box">${result.text}<div class="effect-tags">${result.tags.map(t=>`<span class="efftag ${t.sign}">${t.text}</span>`).join('')}</div></div>
           ${isMyTurn?`<div class="btn-row"><button class="btn btn-stamp" onclick="nextTurn()">ดำเนินการต่อ</button></div>`:`<div class="waiting-box">รอ ${ownerSlot.name} ดำเนินการต่อ...</div>`}
@@ -1160,7 +1174,10 @@ function chooseEvent(choiceIdx){
   const r=ui.room;
   const ev=r.currentEvent;
   const choice=ev.choices[choiceIdx];
-  const eff=choice.effect;
+  let eff=choice.effect;
+  if(ev.id==='noconf'){
+    eff=computeNoConfidenceEffect(eff,choiceIdx,r.decisionHistory);
+  }
   const update={};
   update.treasury=r.treasury+(eff.treasury||0);
   update.national={
@@ -1213,6 +1230,8 @@ function chooseEvent(choiceIdx){
   update.popularity=popularity;
   update.currentEffectResult={text:`เลือก: ${choice.label} — ${choice.desc}`,tags};
   update.usedEventIds=[...r.usedEventIds,ev.id];
+  update.decisionHistory=[...(r.decisionHistory||[]),{eventId:ev.id,choiceIndex:choiceIdx,trustDelta:eff.trust||0,turn:r.turn,term:r.term}];
+  update.noConfidenceVotes={};
   if(ev._filedBy) update.queuedEvent=null;
 
   let leftAny=false;
