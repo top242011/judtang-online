@@ -654,7 +654,12 @@ PHASE_TEMPLATES.election_result=function(){
       ${won?' — ได้เสียงข้างมากเด็ดขาด จัดตั้งรัฐบาลพรรคเดียวได้ทันที':' — ไม่มีพรรคใดได้เสียงข้างมากเด็ดขาด ต้องเจรจาจัดตั้งรัฐบาลผสม'}
     </div>
     <div class="btn-row">
-      <button class="btn btn-stamp" onclick="proceedAfterElection()">${won?'จัดตั้งรัฐบาล':'เริ่มเจรจาจัดตั้งรัฐบาล'}</button>
+      ${won?`
+      <button class="btn btn-stamp" onclick="proceedAfterElection(false)">จัดตั้งรัฐบาลพรรคเดียว</button>
+      <button class="btn btn-ghost-dark" onclick="proceedAfterElection(true)">เจรจาจัดตั้งรัฐบาลผสมแทน</button>
+      `:`
+      <button class="btn btn-stamp" onclick="proceedAfterElection(false)">เริ่มเจรจาจัดตั้งรัฐบาล</button>
+      `}
     </div>
   </div>
   `;
@@ -1047,12 +1052,12 @@ function maybeRunElection(){
   });
 }
 
-function proceedAfterElection(){
+function proceedAfterElection(formCoalition){
   db.runTransaction(t=>t.get(roomRef()).then(snap=>{
     const data=snap.data();
     if(data.phase!=='election_result') return;
     const winner=data.lastElection.results[0];
-    if(winner.seats>=MAJORITY){
+    if(winner.seats>=MAJORITY && !formCoalition){
       const coalitionParties=[{id:winner.id,satisfaction:100}];
       t.update(roomRef(),{phase:'cabinet',pm:winner.id,coalitionSlots:[winner.id],coalitionParties,cabinet:{},invitations:{}});
     } else {
@@ -1489,6 +1494,14 @@ function armAutomationWatchdog(){
 function releaseAutomation(){
   automationBusy=false;
   if(automationWatchdog){ clearTimeout(automationWatchdog); automationWatchdog=null; }
+  // An automation step's own write (e.g. coalition -> cabinet) can race the
+  // snapshot it triggers: that snapshot may arrive while automationBusy is
+  // still true and get silently dropped by the busy-guard, stranding the
+  // room in a phase that needed a further automated step with nothing left
+  // to re-trigger it. Re-check right after clearing the flag so any phase
+  // change we just made is picked up immediately instead of relying on a
+  // snapshot that might already have been missed.
+  runHostAutomation();
 }
 
 function runHostAutomation(){
