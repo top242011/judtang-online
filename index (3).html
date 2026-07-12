@@ -639,7 +639,7 @@ PHASE_TEMPLATES.coalition=function(){
   ${topbar()}${breadcrumb('coalition')}
   <div class="doc">
     <h2>เจรจาจัดตั้งรัฐบาลผสม</h2>
-    <div class="doc-sub">พรรคแกนนำ: <strong>${pmSlot.name}</strong>${pmSlot.claimedBy?'':' (AI ดำเนินการอัตโนมัติ)'} มี ${pmSeats} ที่นั่ง &middot; ต้องการรวม ${MAJORITY} ที่นั่ง</div>
+    <div class="doc-sub">พรรคแกนนำ: <strong>${pmSlot.name}</strong>${pmSlot.claimedBy?` (ผู้เล่น: ${pmSlot.playerDisplayName||'ไม่ทราบชื่อ'})`:' (AI ดำเนินการอัตโนมัติ)'} มี ${pmSeats} ที่นั่ง &middot; ต้องการรวม ${MAJORITY} ที่นั่ง</div>
 
     ${others.map(s=>{
       const seats=(r.lastElection.results.find(x=>x.id===s.id)?.seats||0);
@@ -649,7 +649,7 @@ PHASE_TEMPLATES.coalition=function(){
       return `<div class="party-row ${status==='accepted'?'selected':''} ${mine&&mine.id===s.id?'mine':''}">
         <span class="dot" style="background:${s.color}"></span>
         <div class="info">
-          <div class="pname">${s.name} <span class="tag ${tag.cls}">${tag.label}</span> ${s.claimedBy?'<span class="tag human">คน</span>':'<span class="tag ai">AI</span>'}</div>
+          <div class="pname">${s.name} <span class="tag ${tag.cls}">${tag.label}</span> ${s.claimedBy?`<span class="tag human">${s.playerDisplayName||'ไม่ทราบชื่อ'}</span>`:'<span class="tag ai">AI</span>'}</div>
           <div class="pmeta">${seats} ที่นั่ง</div>
         </div>
         ${status?`<span class="tag ${status}">${status==='accepted'?'ตอบรับ':status==='declined'?'ปฏิเสธ':'รอตอบรับ'}</span>`
