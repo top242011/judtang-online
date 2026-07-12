@@ -838,6 +838,7 @@ function handleCreateRoom(){
     lastElection:null, pm:null, coalitionSlots:[], invitations:{}, cabinet:{}, coalitionParties:[],
     turn:1, turnsPerTerm:16, usedEventIds:[], currentEvent:null, currentEventOwnerSlot:null, currentEffectResult:null,
     collapsed:false, electionLock:false, pendingCollapse:false, deficitStreak:0, concededPm:[],
+    decisionHistory:[], noConfidenceVotes:{},
   };
   db.collection(ROOMS).doc(code).set(roomData).then(()=>{
     subscribeRoom(code);
@@ -1091,7 +1092,7 @@ function confirmCabinet(){
   const nextR={...r,coalitionParties,usedEventIds:[]};
   const {event,ownerSlot}=drawEventForRoom(nextR);
   stampAndThen('แต่งตั้งแล้ว',()=>{
-    roomRef().update({phase:'governing',coalitionParties,turn:1,usedEventIds:[],currentEffectResult:null,currentEvent:event,currentEventOwnerSlot:ownerSlot});
+    roomRef().update({phase:'governing',coalitionParties,turn:1,usedEventIds:[],currentEffectResult:null,currentEvent:event,currentEventOwnerSlot:ownerSlot,decisionHistory:[],noConfidenceVotes:{}});
   });
 }
 
@@ -1255,7 +1256,7 @@ function nextTurn(){
   const crisis=computeDeficitCrisis(r.treasury,r.deficitStreak||0,r.national);
   const nextR={...r,turn:r.turn+1,national:crisis.national};
   const {event,ownerSlot}=drawEventForRoom(nextR);
-  roomRef().update({turn:r.turn+1,national:crisis.national,deficitStreak:crisis.deficitStreak,currentEvent:event,currentEventOwnerSlot:ownerSlot,currentEffectResult:null,queuedEvent:null});
+  roomRef().update({turn:r.turn+1,national:crisis.national,deficitStreak:crisis.deficitStreak,currentEvent:event,currentEventOwnerSlot:ownerSlot,currentEffectResult:null,queuedEvent:null,noConfidenceVotes:{}});
 }
 
 function startNewTerm(){
@@ -1291,6 +1292,7 @@ function resetRoomToLobby(){
     lastElection:null, pm:null, coalitionSlots:[], invitations:{}, cabinet:{}, coalitionParties:[],
     turn:1, turnsPerTerm:16, usedEventIds:[], currentEvent:null, currentEventOwnerSlot:null, currentEffectResult:null,
     collapsed:false, electionLock:false, pendingCollapse:false, deficitStreak:0, concededPm:[],
+    decisionHistory:[], noConfidenceVotes:{},
   });
 }
 
@@ -1368,7 +1370,7 @@ function runHostAutomation(){
           const coalitionParties=computeCoalitionSatisfaction(r,cabinet);
           const nextR={...r,cabinet,coalitionParties,usedEventIds:[]};
           const {event,ownerSlot}=drawEventForRoom(nextR);
-          roomRef().update({cabinet,coalitionParties,phase:'governing',turn:1,usedEventIds:[],currentEffectResult:null,currentEvent:event,currentEventOwnerSlot:ownerSlot}).catch(()=>{}).finally(releaseAutomation);
+          roomRef().update({cabinet,coalitionParties,phase:'governing',turn:1,usedEventIds:[],currentEffectResult:null,currentEvent:event,currentEventOwnerSlot:ownerSlot,decisionHistory:[],noConfidenceVotes:{}}).catch(()=>{}).finally(releaseAutomation);
         } catch(e){ console.error('AI cabinet automation failed:',e); releaseAutomation(); }
       },700);
     }
