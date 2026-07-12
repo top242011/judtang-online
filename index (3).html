@@ -1322,7 +1322,7 @@ function dissolveParliament(){
   if(!mine || mine.id!==r.pm) return;
   if(!confirm('ยืนยันยุบสภา? สมัยนี้จะสิ้นสุดทันทีและเข้าสู่การเลือกตั้งใหม่')) return;
   stampAndThen('ยุบสภาแล้ว',()=>{
-    roomRef().update({phase:'term_summary',collapsed:false,dissolvedByPm:true});
+    roomRef().update({phase:'term_summary',collapsed:false,dissolvedByPm:true,pendingPmDisqualification:null});
   });
 }
 
@@ -1446,7 +1446,7 @@ function startNewTerm(){
     }
     return {...s,submitted:false,budget:{north:0,isaan:0,central:0,bangkok:0,south:0}};
   });
-  roomRef().update({phase:'campaign',term:r.term+1,slots,electionLock:false,invitations:{},pendingCollapse:false,oppositionActions:{},queuedEvent:null,deficitStreak:0,dissolvedByPm:false});
+  roomRef().update({phase:'campaign',term:r.term+1,slots,electionLock:false,invitations:{},pendingCollapse:false,oppositionActions:{},queuedEvent:null,deficitStreak:0,dissolvedByPm:false,pendingPmDisqualification:null});
 }
 
 function resetRoomToLobby(){
