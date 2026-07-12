@@ -1290,9 +1290,20 @@ function fileNoConfidence(){
   if(!mine || r.coalitionSlots.includes(mine.id)) return;
   if(r.oppositionActions?.[mine.id]?.noConfidenceUsedThisTerm) return;
   if(r.queuedEvent || (r.currentEvent && r.currentEvent._filedBy)) return;
-  const oppositionActions={...(r.oppositionActions||{}),[mine.id]:{noConfidenceUsedThisTerm:true}};
+  const oppositionActions={...(r.oppositionActions||{}),[mine.id]:{...(r.oppositionActions?.[mine.id]||{}),noConfidenceUsedThisTerm:true}};
   stampAndThen('ยื่นญัตติแล้ว',()=>{
-    roomRef().update({oppositionActions,queuedEvent:{filedBy:mine.id}});
+    roomRef().update({oppositionActions,queuedEvent:{filedBy:mine.id,type:'noconf'}});
+  });
+}
+function fileCourtPetition(targetId){
+  const r=ui.room; const mine=mySlot();
+  if(!mine || r.coalitionSlots.includes(mine.id)) return;
+  if(r.oppositionActions?.[mine.id]?.courtPetitionUsedThisTerm) return;
+  if(r.queuedEvent || (r.currentEvent && r.currentEvent._filedBy)) return;
+  if(countGuiltyIncidents(r.corruptionIncidents,targetId)<1) return;
+  const oppositionActions={...(r.oppositionActions||{}),[mine.id]:{...(r.oppositionActions?.[mine.id]||{}),courtPetitionUsedThisTerm:true}};
+  stampAndThen('ยื่นคำร้องแล้ว',()=>{
+    roomRef().update({oppositionActions,queuedEvent:{filedBy:mine.id,targetId,type:'courtcase'}});
   });
 }
 function castNoConfidenceVote(choiceIdx,slotId){
