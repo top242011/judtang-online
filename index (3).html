@@ -524,9 +524,12 @@ function slotCard(s,i,mine){
     <span class="dot" style="background:${s.color}"></span>
     <div class="info">
       <div class="sname">${s.name}</div>
-      <div class="smeta">${taken?('ผู้เล่น: '+(s.playerDisplayName||'ไม่ทราบชื่อ')+(isMine?' (คุณ)':'')):'ว่าง — จะให้ AI เล่นแทนถ้าไม่มีใครเลือก'}</div>
+      <div class="smeta">${taken?('ผู้เล่น: '+(s.playerDisplayName||'ไม่ทราบชื่อ')+(isMine?' (คุณ)':'')):(s.aiLocked?'ล็อคให้ AI เล่นแทน':'ว่าง — จะให้ AI เล่นแทนถ้าไม่มีใครเลือก')}</div>
     </div>
-    ${!taken?`<button class="btn btn-ghost-dark" onclick="claimSlot(${i})">เข้าร่วมพรรคนี้</button>`:(isMine?`<span class="tag human">คุณ</span>`:`<span class="tag human">มีคนแล้ว</span>`)}
+    ${!taken && !s.aiLocked?`<button class="btn btn-ghost-dark" onclick="claimSlot(${i})">เข้าร่วมพรรคนี้</button>`:''}
+    ${taken?(isMine?`<span class="tag human">คุณ</span>`:`<span class="tag human">มีคนแล้ว</span>`):(s.aiLocked?`<span class="tag ai">AI เท่านั้น</span>`:'')}
+    ${host && !taken?`<button class="btn btn-ghost-dark" onclick="toggleSlotAiLock(${i})">${s.aiLocked?'ปลดล็อค AI':'ล็อคเป็น AI'}</button>`:''}
+    ${host && taken && !isMine?`<button class="btn btn-ghost-dark" onclick="kickSlot(${i})">เตะออก</button>`:''}
     ${host && !taken?`<button class="btn btn-ghost-dark" ${canDisable?'':'disabled'} onclick="toggleSlotEnabled(${i})">ปิดพรรคนี้</button>`:''}
   </div>`;
 }
@@ -834,6 +837,7 @@ function leaveRoom(){
 
 function claimSlot(idx){
   const slots=ui.room.slots.map(s=>({...s}));
+  if(!slots[idx].enabled || slots[idx].aiLocked) return;
   slots.forEach(s=>{ if(s.claimedBy===MY_ID){ s.claimedBy=null; s.playerDisplayName=null; } });
   slots[idx].claimedBy=MY_ID;
   slots[idx].playerDisplayName=ui.nameInput||'ผู้เล่น';
@@ -855,6 +859,25 @@ function toggleSlotEnabled(idx){
   } else {
     target.enabled=true;
   }
+  roomRef().update({slots});
+}
+function toggleSlotAiLock(idx){
+  if(!isHost()) return;
+  const slots=ui.room.slots.map(s=>({...s}));
+  const target=slots[idx];
+  if(target.claimedBy) return;
+  target.aiLocked=!target.aiLocked;
+  roomRef().update({slots});
+}
+function kickSlot(idx){
+  if(!isHost()) return;
+  const slots=ui.room.slots.map(s=>({...s}));
+  const target=slots[idx];
+  if(!target.claimedBy || target.claimedBy===MY_ID) return;
+  target.claimedBy=null;
+  target.playerDisplayName=null;
+  target.ready=false;
+  target.aiLocked=true;
   roomRef().update({slots});
 }
 function startGame(){
