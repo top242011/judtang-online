@@ -836,9 +836,9 @@ function billCard(r,mine,bill){
       : `<div class="tag medium">รอพรรคอื่นตอบสนอง (${bill.respondedToAmend.length}/${activeCount})</div>`;
   } else if(bill.stage==='select'){
     const voted=mine && bill.selectVotes[mine.id]!==undefined;
-    const options=[...new Set(bill.amendments.map(a=>a.intensity))];
+    const options=[...new Set([bill.intensity,...bill.amendments.map(a=>a.intensity)])];
     body = mine && !voted
-      ? `<div class="btn-row">${options.map(i=>`<button class="btn btn-ghost-dark" onclick="castSelectVote('${bill.id}','${i}')">เลือก ${i}</button>`).join('')}</div>`
+      ? `<div class="btn-row">${options.map(i=>`<button class="btn btn-ghost-dark" onclick="castSelectVote('${bill.id}','${i}')">เลือก ${i}${i===bill.intensity?' (ร่างเดิม)':''}</button>`).join('')}</div>`
       : `<div class="tag medium">โหวตเลือกเวอร์ชันแล้ว</div>`;
   } else if(bill.stage==='pass'){
     const voted=mine && bill.passVotes[mine.id]!==undefined;
@@ -1563,7 +1563,7 @@ function proposeBill(category,direction){
   if(pending.some(b=>b.proposerId===mine.id)) return;
   const bill={
     id:'b'+Math.random().toString(36).slice(2,9),
-    proposerId:mine.id, category, direction, stage:'amend',
+    proposerId:mine.id, category, direction, intensity:'moderate', stage:'amend',
     amendments:[], respondedToAmend:[mine.id],
     selectVotes:{}, passVotes:{},
   };
@@ -1623,7 +1623,7 @@ function castPassVote(billId,vote){
   });
   const update={pendingBills:bills.filter(b=>b.stage!=='done')};
   if(resolved){
-    const intensity=resolved.bill.selectedIntensity || (resolved.bill.amendments.length?resolved.bill.amendments[0].intensity:'mild');
+    const intensity=resolved.bill.selectedIntensity || resolved.bill.intensity;
     if(resolved.passed){
       update.activeLaws={...r.activeLaws,[resolved.bill.category]:{direction:resolved.bill.direction,intensity,proposerId:resolved.bill.proposerId}};
     } else if(r.coalitionParties.some(p=>p.id===resolved.bill.proposerId)){
@@ -1832,7 +1832,7 @@ function runHostAutomation(){
       automationBusy=true; armAutomationWatchdog();
       setTimeout(()=>{
         try{
-          const options=[...new Set(selectCandidate.amendments.map(a=>a.intensity))];
+          const options=[...new Set([selectCandidate.intensity,...selectCandidate.amendments.map(a=>a.intensity)])];
           const rank={mild:1,moderate:2,aggressive:3};
           const stanceRank=Math.min(3,Math.max(1,Math.round(Math.abs(aiSlot.billStance[selectCandidate.category]||0)/34)+1));
           const pick=options.reduce((best,i)=>Math.abs(rank[i]-stanceRank)<Math.abs(rank[best]-stanceRank)?i:best,options[0]);
