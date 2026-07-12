@@ -192,6 +192,9 @@ function computeDeficitCrisis(treasury,deficitStreak,national){
 function countBadDecisions(decisionHistory){
   return (decisionHistory||[]).filter(d=>d.trustDelta<0).length;
 }
+function countGuiltyIncidents(corruptionIncidents,targetId){
+  return (corruptionIncidents||[]).filter(d=>d.targetId===targetId && d.choiceIndex===1).length;
+}
 function computeNoConfidenceEffect(baseEffect,choiceIdx,decisionHistory){
   const badCount=countBadDecisions(decisionHistory);
   const eff={...baseEffect};
@@ -1150,14 +1153,15 @@ function drawEventForRoom(r){
     return {event,ownerSlot:r.pm};
   }
   let pool=EVENTS.filter(e=>!r.usedEventIds.includes(e.id));
-  const partnerMinistries=MINISTRIES.filter(m=>r.cabinet[m.id] && r.cabinet[m.id]!==r.pm);
-  if(partnerMinistries.length && !r.usedEventIds.includes('corruption')){
-    const m=partnerMinistries[Math.floor(Math.random()*partnerMinistries.length)];
+  const assignedMinistries=MINISTRIES.filter(m=>r.cabinet[m.id]);
+  if(assignedMinistries.length && !r.usedEventIds.includes('corruption')){
+    const m=assignedMinistries[Math.floor(Math.random()*assignedMinistries.length)];
     const ownerId=r.cabinet[m.id];
     const owner=r.slots.find(s=>s.id===ownerId);
     pool=pool.concat([{
       id:'corruption', title:'เรื่องอื้อฉาวทุจริตใน'+m.name,
       desc:`มีรายงานข่าวการทุจริตจัดซื้อจัดจ้างใน${m.name} ซึ่งอยู่ภายใต้การกำกับดูแลของ${owner?owner.name:'พรรคร่วมรัฐบาล'} สื่อมวลชนจับตาอย่างใกล้ชิด`,
+      _corruptionTarget: ownerId,
       choices:[
         {label:'ตั้งกรรมการสอบสวนอิสระ',desc:'สร้างความโปร่งใส แต่กระทบความสัมพันธ์กับพรรคร่วม',effect:{trust:8,treasury:-5,satisfactionParty:{id:ownerId,val:-15}}},
         {label:'ปกป้องพรรคร่วมรัฐบาล ไม่ตั้งกรรมการ',desc:'รักษาความสัมพันธ์ในรัฐบาล แต่เสี่ยงเสียความเชื่อมั่นสาธารณะ',effect:{trust:-15,unrest:8,satisfactionParty:{id:ownerId,val:10}}},
@@ -1259,6 +1263,9 @@ function chooseEvent(choiceIdx){
   update.usedEventIds=[...r.usedEventIds,ev.id];
   update.decisionHistory=[...(r.decisionHistory||[]),{eventId:ev.id,choiceIndex:choiceIdx,trustDelta:eff.trust||0,turn:r.turn,term:r.term}];
   update.noConfidenceVotes={};
+  if(ev.id==='corruption'){
+    update.corruptionIncidents=[...(r.corruptionIncidents||[]),{targetId:ev._corruptionTarget,term:r.term,turn:r.turn,choiceIndex:choiceIdx}];
+  }
   if(ev._filedBy) update.queuedEvent=null;
 
   let leftAny=false;
