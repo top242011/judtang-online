@@ -879,6 +879,7 @@ function handleCreateRoom(){
     turn:1, turnsPerTerm:16, usedEventIds:[], currentEvent:null, currentEventOwnerSlot:null, currentEffectResult:null,
     collapsed:false, electionLock:false, pendingCollapse:false, deficitStreak:0, concededPm:[],
     decisionHistory:[], noConfidenceVotes:{},
+    corruptionIncidents:[], pendingPmDisqualification:null, midTermReshuffle:false, dissolvedByPm:false,
   };
   db.collection(ROOMS).doc(code).set(roomData).then(()=>{
     subscribeRoom(code);
@@ -1341,7 +1342,7 @@ function startNewTerm(){
     }
     return {...s,submitted:false,budget:{north:0,isaan:0,central:0,bangkok:0,south:0}};
   });
-  roomRef().update({phase:'campaign',term:r.term+1,slots,electionLock:false,invitations:{},pendingCollapse:false,oppositionActions:{},queuedEvent:null,deficitStreak:0});
+  roomRef().update({phase:'campaign',term:r.term+1,slots,electionLock:false,invitations:{},pendingCollapse:false,oppositionActions:{},queuedEvent:null,deficitStreak:0,dissolvedByPm:false});
 }
 
 function resetRoomToLobby(){
@@ -1365,6 +1366,7 @@ function resetRoomToLobby(){
     turn:1, turnsPerTerm:16, usedEventIds:[], currentEvent:null, currentEventOwnerSlot:null, currentEffectResult:null,
     collapsed:false, electionLock:false, pendingCollapse:false, deficitStreak:0, concededPm:[],
     decisionHistory:[], noConfidenceVotes:{},
+    corruptionIncidents:[], pendingPmDisqualification:null, midTermReshuffle:false, dissolvedByPm:false,
   });
 }
 
