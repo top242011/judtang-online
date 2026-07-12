@@ -1261,6 +1261,33 @@ function fileNoConfidence(){
     roomRef().update({oppositionActions,queuedEvent:{filedBy:mine.id}});
   });
 }
+function castNoConfidenceVote(choiceIdx,slotId){
+  const r=ui.room;
+  const mine=mySlot();
+  const targetId=slotId||(mine&&mine.id);
+  if(!targetId) return;
+  if(!r.coalitionSlots.includes(targetId)) return;
+  if((r.noConfidenceVotes||{})[targetId]!==undefined) return;
+  const noConfidenceVotes={...(r.noConfidenceVotes||{}),[targetId]:choiceIdx};
+  roomRef().update({noConfidenceVotes});
+}
+function tallyNoConfidenceWinner(r){
+  const votes=r.noConfidenceVotes||{};
+  let seatsFor=[0,0];
+  r.coalitionSlots.forEach(id=>{
+    const idx=votes[id];
+    if(idx===undefined) return;
+    const seats=(r.lastElection.results.find(x=>x.id===id)?.seats||0);
+    seatsFor[idx]+=seats;
+  });
+  if(seatsFor[0]>seatsFor[1]) return 0;
+  if(seatsFor[1]>seatsFor[0]) return 1;
+  return votes[r.pm];
+}
+function resolveNoConfidenceVote(){
+  const r=ui.room;
+  chooseEvent(tallyNoConfidenceWinner(r));
+}
 
 function nextTurn(){
   const r=ui.room;
