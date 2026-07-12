@@ -622,15 +622,47 @@ function slotCard(s,i,mine){
   </div>`;
 }
 
+function priorTermCard(r){
+  if(r.term<=1) return '';
+  const seatRows=(r.lastElection?.results||[]).map(x=>`<tr><td>${x.name}</td><td class="mono">${x.seats}</td></tr>`).join('');
+  return `<div class="doc">
+    <h3>ผลงานสมัยที่แล้ว (สมัยที่ ${r.term-1})</h3>
+    <div class="doc-grid">
+      <div>
+        <p><strong>เศรษฐกิจ:</strong> ${fmt(r.national.economy)}/100</p>
+        <p><strong>ความเชื่อมั่นประชาชน:</strong> ${fmt(r.national.trust)}/100</p>
+        <p><strong>ความไม่สงบ:</strong> ${fmt(r.national.unrest)}/100</p>
+        <p><strong>งบประมาณคงเหลือ:</strong> ฿${fmt(r.treasury)} ล้านบาท</p>
+      </div>
+      <div>
+        <table class="ledger"><thead><tr><th>พรรค</th><th>ที่นั่งสมัยก่อน</th></tr></thead><tbody>${seatRows}</tbody></table>
+      </div>
+    </div>
+  </div>`;
+}
+function campaignRevealTable(r){
+  if(!claimedSlots().every(s=>s.submitted) || claimedSlots().length===0) return '';
+  const rows=r.slots.map(s=>`<tr>
+    <td>${s.name}</td>
+    <td class="mono">${s.policy.economy}</td>
+    <td class="mono">${s.policy.reform}</td>
+    <td class="mono">${s.policy.security}</td>
+    <td class="mono">${REGIONS.map(reg=>`${reg.name.slice(0,2)}:${s.budget[reg.id]||0}`).join(' ')}</td>
+  </tr>`).join('');
+  return `<div class="doc">
+    <h3>นโยบายหาเสียงของทุกพรรค</h3>
+    <table class="ledger"><thead><tr><th>พรรค</th><th>ศก.</th><th>ปฏิรูป</th><th>มั่นคง</th><th>งบหาเสียง</th></tr></thead><tbody>${rows}</tbody></table>
+  </div>`;
+}
 PHASE_TEMPLATES.campaign=function(){
   const r=ui.room; const mine=mySlot();
   const submittedCount=claimedSlots().filter(s=>s.submitted).length;
   const totalHuman=claimedSlots().length;
   if(!mine){
-    return `${topbar()}${breadcrumb('campaign')}<div class="doc"><div class="waiting-box">คุณไม่ได้ควบคุมพรรคในห้องนี้ กำลังชมเกม...<br>รอผู้เล่นส่งนโยบาย (${submittedCount}/${totalHuman})</div></div>`;
+    return `${topbar()}${breadcrumb('campaign')}<div class="doc"><div class="waiting-box">คุณไม่ได้ควบคุมพรรคในห้องนี้ กำลังชมเกม...<br>รอผู้เล่นส่งนโยบาย (${submittedCount}/${totalHuman})</div></div>${priorTermCard(r)}${campaignRevealTable(r)}`;
   }
   if(mine.submitted){
-    return `${topbar()}${breadcrumb('campaign')}<div class="doc"><h2>ส่งนโยบายแล้ว</h2><div class="waiting-box">รอผู้เล่นคนอื่นยืนยันนโยบาย (${submittedCount}/${totalHuman})</div></div>`;
+    return `${topbar()}${breadcrumb('campaign')}<div class="doc"><h2>ส่งนโยบายแล้ว</h2><div class="waiting-box">รอผู้เล่นคนอื่นยืนยันนโยบาย (${submittedCount}/${totalHuman})</div></div>${priorTermCard(r)}${campaignRevealTable(r)}`;
   }
   const draft=ui.draft||{policy:{...mine.policy},budget:{north:0,isaan:0,central:0,bangkok:0,south:0}};
   ui.draft=draft;
@@ -638,6 +670,7 @@ PHASE_TEMPLATES.campaign=function(){
   const remaining=100-used;
   return `
   ${topbar()}${breadcrumb('campaign')}
+  ${priorTermCard(r)}
   <div class="doc">
     <h2>แถลงนโยบายพรรค — ${mine.name}</h2>
     <div class="doc-sub">สมัยที่ ${r.term} &middot; ปรับจุดยืนนโยบายก่อนลงพื้นที่หาเสียง</div>
