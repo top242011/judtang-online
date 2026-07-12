@@ -782,7 +782,8 @@ function handleCreateRoom(){
   const slots=PARTY_TEMPLATES.map((t,i)=>({
     id:'s'+i, name:t.name, color:t.color, emblem:t.name[3]||t.name[0],
     policy:{...t.policy}, claimedBy:null, playerDisplayName:null,
-    submitted:false, budget:{north:0,isaan:0,central:0,bangkok:0,south:0}
+    submitted:false, budget:{north:0,isaan:0,central:0,bangkok:0,south:0},
+    enabled:true, aiLocked:false, ready:false,
   }));
   const emptyPop={north:0,isaan:0,central:0,bangkok:0,south:0};
   const roomData={
@@ -1197,6 +1198,7 @@ function resetRoomToLobby(){
     policy:{...PARTY_TEMPLATES[i].policy},
     submitted:false,
     budget:{...emptyBudget},
+    ready:false,
   }));
   const emptyPop={north:0,isaan:0,central:0,bangkok:0,south:0};
   roomRef().update({
