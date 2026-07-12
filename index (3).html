@@ -248,12 +248,12 @@ const MINISTRIES=[
 const TOTAL_WEIGHT=MINISTRIES.reduce((s,m)=>s+m.weight,0);
 
 const PARTY_TEMPLATES=[
-  {name:'พรรคไทยรุ่งเรือง',color:'#8B6F2E',policy:{economy:40,reform:-70,security:60}},
-  {name:'พรรคประชาชนก้าวใหม่',color:'#2E8B74',policy:{economy:-20,reform:90,security:-50}},
-  {name:'พรรคชาวนาไทยเข้มแข็ง',color:'#3F6B2E',policy:{economy:-70,reform:10,security:0}},
-  {name:'พรรครวมพลังท้องถิ่น',color:'#6B2E4C',policy:{economy:20,reform:-30,security:30}},
-  {name:'พรรคเศรษฐกิจใหม่',color:'#2E5A8B',policy:{economy:80,reform:20,security:10}},
-  {name:'พรรคประชาธรรมใหม่',color:'#8B4A2E',policy:{economy:0,reform:40,security:20}},
+  {name:'พรรคไทยรุ่งเรือง',color:'#8B6F2E',policy:{economy:40,reform:-70,security:60},billStance:{fiscal:30,social:-40,security:60}},
+  {name:'พรรคประชาชนก้าวใหม่',color:'#2E8B74',policy:{economy:-20,reform:90,security:-50},billStance:{fiscal:-50,social:70,security:-60}},
+  {name:'พรรคชาวนาไทยเข้มแข็ง',color:'#3F6B2E',policy:{economy:-70,reform:10,security:0},billStance:{fiscal:-80,social:20,security:0}},
+  {name:'พรรครวมพลังท้องถิ่น',color:'#6B2E4C',policy:{economy:20,reform:-30,security:30},billStance:{fiscal:10,social:-20,security:30}},
+  {name:'พรรคเศรษฐกิจใหม่',color:'#2E5A8B',policy:{economy:80,reform:20,security:10},billStance:{fiscal:70,social:10,security:10}},
+  {name:'พรรคประชาธรรมใหม่',color:'#8B4A2E',policy:{economy:0,reform:40,security:20},billStance:{fiscal:0,social:30,security:20}},
 ];
 
 const MINISTRY_EVENT_MAP={energy_crisis:'energy',pm25:'health',flood:'interior',fta:'commerce',edu:'education',crop:'agri',south:'defense',deficit:'finance',digital:'digital',transit:'transport',judicial:'justice',diplo:'foreign',noconf:null,corruption:null};
@@ -885,7 +885,7 @@ function handleCreateRoom(){
   const code=genRoomCode();
   const slots=PARTY_TEMPLATES.map((t,i)=>({
     id:'s'+i, name:t.name, color:t.color, emblem:t.name[3]||t.name[0],
-    policy:{...t.policy}, claimedBy:null, playerDisplayName:null,
+    policy:{...t.policy}, billStance:{...t.billStance}, claimedBy:null, playerDisplayName:null,
     submitted:false, budget:{north:0,isaan:0,central:0,bangkok:0,south:0},
     enabled:true, aiLocked:false, ready:false,
   }));
@@ -900,6 +900,7 @@ function handleCreateRoom(){
     collapsed:false, electionLock:false, pendingCollapse:false, deficitStreak:0, concededPm:[],
     decisionHistory:[], noConfidenceVotes:{},
     corruptionIncidents:[], pendingPmDisqualification:null, midTermReshuffle:false, dissolvedByPm:false,
+    pendingBills:[], activeLaws:{fiscal:null,social:null,security:null}, publicDebt:0,
   };
   db.collection(ROOMS).doc(code).set(roomData).then(()=>{
     subscribeRoom(code);
@@ -1100,7 +1101,7 @@ function nextPmCandidate(r){
 function restartElectionSameTerm(){
   const r=ui.room;
   const slots=r.slots.map(s=>({...s,submitted:false,budget:{north:0,isaan:0,central:0,bangkok:0,south:0}}));
-  roomRef().update({phase:'campaign',slots,electionLock:false,concededPm:[],pm:null,coalitionSlots:[],invitations:{},cabinet:{},midTermReshuffle:false});
+  roomRef().update({phase:'campaign',slots,electionLock:false,concededPm:[],pm:null,coalitionSlots:[],invitations:{},cabinet:{},midTermReshuffle:false,pendingBills:[]});
 }
 function concedePmCandidacy(){
   const r=ui.room;
@@ -1159,7 +1160,7 @@ function confirmCabinet(){
       turn: isReshuffle ? r.turn : 1,
       usedEventIds: isReshuffle ? r.usedEventIds : [],
       currentEffectResult:null, currentEvent:event, currentEventOwnerSlot:ownerSlot,
-      decisionHistory:[], noConfidenceVotes:{}, midTermReshuffle:false,
+      decisionHistory:[], noConfidenceVotes:{}, midTermReshuffle:false, pendingBills:[],
     });
   });
 }
@@ -1421,9 +1422,9 @@ function nextTurn(){
     }
     if(next.seats>=MAJORITY){
       const coalitionParties=[{id:next.id,satisfaction:100}];
-      roomRef().update({phase:'cabinet',pm:next.id,coalitionSlots:[next.id],coalitionParties,cabinet:{},invitations:{},concededPm,pendingPmDisqualification:null,midTermReshuffle:true});
+      roomRef().update({phase:'cabinet',pm:next.id,coalitionSlots:[next.id],coalitionParties,cabinet:{},invitations:{},concededPm,pendingPmDisqualification:null,midTermReshuffle:true,pendingBills:[]});
     } else {
-      roomRef().update({phase:'coalition',pm:next.id,coalitionSlots:[],coalitionParties:[],invitations:{},cabinet:{},concededPm,pendingPmDisqualification:null,midTermReshuffle:true});
+      roomRef().update({phase:'coalition',pm:next.id,coalitionSlots:[],coalitionParties:[],invitations:{},cabinet:{},concededPm,pendingPmDisqualification:null,midTermReshuffle:true,pendingBills:[]});
     }
     return;
   }
@@ -1451,7 +1452,7 @@ function startNewTerm(){
     }
     return {...s,submitted:false,budget:{north:0,isaan:0,central:0,bangkok:0,south:0}};
   });
-  roomRef().update({phase:'campaign',term:r.term+1,slots,electionLock:false,invitations:{},pendingCollapse:false,oppositionActions:{},queuedEvent:null,deficitStreak:0,dissolvedByPm:false,pendingPmDisqualification:null});
+  roomRef().update({phase:'campaign',term:r.term+1,slots,electionLock:false,invitations:{},pendingCollapse:false,oppositionActions:{},queuedEvent:null,deficitStreak:0,dissolvedByPm:false,pendingPmDisqualification:null,pendingBills:[]});
 }
 
 function resetRoomToLobby(){
@@ -1462,6 +1463,7 @@ function resetRoomToLobby(){
   const slots=r.slots.map((s,i)=>({
     ...s,
     policy:{...PARTY_TEMPLATES[Number(s.id.slice(1))].policy},
+    billStance:{...PARTY_TEMPLATES[Number(s.id.slice(1))].billStance},
     submitted:false,
     budget:{...emptyBudget},
     ready:false,
@@ -1476,6 +1478,7 @@ function resetRoomToLobby(){
     collapsed:false, electionLock:false, pendingCollapse:false, deficitStreak:0, concededPm:[],
     decisionHistory:[], noConfidenceVotes:{},
     corruptionIncidents:[], pendingPmDisqualification:null, midTermReshuffle:false, dissolvedByPm:false,
+    pendingBills:[], activeLaws:{fiscal:null,social:null,security:null}, publicDebt:0,
   });
 }
 
@@ -1567,7 +1570,7 @@ function runHostAutomation(){
             turn: isReshuffle ? r.turn : 1,
             usedEventIds: isReshuffle ? r.usedEventIds : [],
             currentEffectResult:null,currentEvent:event,currentEventOwnerSlot:ownerSlot,
-            decisionHistory:[],noConfidenceVotes:{},midTermReshuffle:false,
+            decisionHistory:[],noConfidenceVotes:{},midTermReshuffle:false,pendingBills:[],
           }).catch(()=>{}).finally(releaseAutomation);
         } catch(e){ console.error('AI cabinet automation failed:',e); releaseAutomation(); }
       },700);
