@@ -675,11 +675,23 @@ PHASE_TEMPLATES.campaign=function(){
     <h2>แถลงนโยบายพรรค — ${mine.name}</h2>
     <div class="doc-sub">สมัยที่ ${r.term} &middot; ปรับจุดยืนนโยบายก่อนลงพื้นที่หาเสียง</div>
     <div class="axis"><div class="axis-labels"><span>ประชานิยม / รัฐสวัสดิการ</span><span>เสรีตลาด / ทุนนิยม</span></div>
-      <input type="range" min="-100" max="100" value="${draft.policy.economy}" oninput="ui.draft.policy.economy=Number(this.value)"></div>
+      <div class="axis-input-row">
+        <input type="range" min="-100" max="100" value="${draft.policy.economy}" oninput="ui.draft.policy.economy=Number(this.value); this.nextElementSibling.value=this.value">
+        <input type="number" min="-100" max="100" value="${draft.policy.economy}" style="width:64px;" oninput="const v=Math.max(-100,Math.min(100,Number(this.value)||0)); ui.draft.policy.economy=v; this.previousElementSibling.value=v; this.value=v">
+      </div>
+    </div>
     <div class="axis"><div class="axis-labels"><span>อนุรักษ์นิยม / รักษาสถาบันเดิม</span><span>ปฏิรูปโครงสร้าง</span></div>
-      <input type="range" min="-100" max="100" value="${draft.policy.reform}" oninput="ui.draft.policy.reform=Number(this.value)"></div>
+      <div class="axis-input-row">
+        <input type="range" min="-100" max="100" value="${draft.policy.reform}" oninput="ui.draft.policy.reform=Number(this.value); this.nextElementSibling.value=this.value">
+        <input type="number" min="-100" max="100" value="${draft.policy.reform}" style="width:64px;" oninput="const v=Math.max(-100,Math.min(100,Number(this.value)||0)); ui.draft.policy.reform=v; this.previousElementSibling.value=v; this.value=v">
+      </div>
+    </div>
     <div class="axis"><div class="axis-labels"><span>สายพิราบ / เจรจา</span><span>สายเหยี่ยว / ความมั่นคง</span></div>
-      <input type="range" min="-100" max="100" value="${draft.policy.security}" oninput="ui.draft.policy.security=Number(this.value)"></div>
+      <div class="axis-input-row">
+        <input type="range" min="-100" max="100" value="${draft.policy.security}" oninput="ui.draft.policy.security=Number(this.value); this.nextElementSibling.value=this.value">
+        <input type="number" min="-100" max="100" value="${draft.policy.security}" style="width:64px;" oninput="const v=Math.max(-100,Math.min(100,Number(this.value)||0)); ui.draft.policy.security=v; this.previousElementSibling.value=v; this.value=v">
+      </div>
+    </div>
   </div>
   <div class="doc">
     <h2>แผนจัดสรรงบหาเสียง</h2>
@@ -693,6 +705,7 @@ PHASE_TEMPLATES.campaign=function(){
           <button onclick="adjustDraftBudget('${reg.id}',-5)">−</button>
           <span class="amt">${draft.budget[reg.id]}</span>
           <button onclick="adjustDraftBudget('${reg.id}',5)">+</button>
+          <input type="number" min="0" max="100" value="${draft.budget[reg.id]}" style="width:56px;margin-left:6px;" onchange="setDraftBudget('${reg.id}',this.value)">
         </div></td>
       </tr>`).join('')}
     </tbody></table>
@@ -1106,6 +1119,12 @@ function adjustDraftBudget(regionId,delta){
   let cur=ui.draft.budget[regionId]+delta;
   cur=Math.max(0,Math.min(100-used,cur));
   ui.draft.budget[regionId]=cur;
+  render();
+}
+function setDraftBudget(regionId,rawValue){
+  const used=Object.entries(ui.draft.budget).reduce((s,[k,v])=>s+(k===regionId?0:v),0);
+  const clamped=Math.max(0,Math.min(100-used,Math.round(Number(rawValue)||0)));
+  ui.draft.budget[regionId]=clamped;
   render();
 }
 
