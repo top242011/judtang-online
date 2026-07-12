@@ -1806,6 +1806,71 @@ function runHostAutomation(){
   }
 
   if(r.phase==='governing'){
+    const pendingBillsList=r.pendingBills||[];
+    const amendCandidate=pendingBillsList.find(b=>b.stage==='amend' && r.slots.some(s=>s.enabled!==false && s.id!==b.proposerId && !s.claimedBy && !b.respondedToAmend.includes(s.id)));
+    if(amendCandidate){
+      const aiSlot=r.slots.find(s=>s.enabled!==false && s.id!==amendCandidate.proposerId && !s.claimedBy && !amendCandidate.respondedToAmend.includes(s.id));
+      automationBusy=true; armAutomationWatchdog();
+      setTimeout(()=>{
+        try{
+          const stance=aiSlot.billStance[amendCandidate.category]||0;
+          const opposes=(amendCandidate.direction>0 && stance<0)||(amendCandidate.direction<0 && stance>0);
+          if(opposes){
+            const softer=amendCandidate.intensity==='aggressive'?'moderate':'mild';
+            submitAmendment(amendCandidate.id,softer);
+          } else {
+            passOnAmendment(amendCandidate.id);
+          }
+        } catch(e){ console.error('AI bill amendment failed:',e); }
+        finally { releaseAutomation(); }
+      },700);
+      return;
+    }
+    const selectCandidate=pendingBillsList.find(b=>b.stage==='select' && r.slots.some(s=>s.enabled!==false && !s.claimedBy && b.selectVotes[s.id]===undefined));
+    if(selectCandidate){
+      const aiSlot=r.slots.find(s=>s.enabled!==false && !s.claimedBy && selectCandidate.selectVotes[s.id]===undefined);
+      automationBusy=true; armAutomationWatchdog();
+      setTimeout(()=>{
+        try{
+          const options=[...new Set(selectCandidate.amendments.map(a=>a.intensity))];
+          const rank={mild:1,moderate:2,aggressive:3};
+          const stanceRank=Math.min(3,Math.max(1,Math.round(Math.abs(aiSlot.billStance[selectCandidate.category]||0)/34)+1));
+          const pick=options.reduce((best,i)=>Math.abs(rank[i]-stanceRank)<Math.abs(rank[best]-stanceRank)?i:best,options[0]);
+          castSelectVote(selectCandidate.id,pick);
+        } catch(e){ console.error('AI bill select-vote failed:',e); }
+        finally { releaseAutomation(); }
+      },700);
+      return;
+    }
+    const passCandidate=pendingBillsList.find(b=>b.stage==='pass' && r.slots.some(s=>s.enabled!==false && !s.claimedBy && b.passVotes[s.id]===undefined));
+    if(passCandidate){
+      const aiSlot=r.slots.find(s=>s.enabled!==false && !s.claimedBy && passCandidate.passVotes[s.id]===undefined);
+      automationBusy=true; armAutomationWatchdog();
+      setTimeout(()=>{
+        try{
+          const stance=aiSlot.billStance[passCandidate.category]||0;
+          const agrees=(passCandidate.direction>0 && stance>=0)||(passCandidate.direction<0 && stance<=0);
+          castPassVote(passCandidate.id, agrees?'yes':'no');
+        } catch(e){ console.error('AI bill pass-vote failed:',e); }
+        finally { releaseAutomation(); }
+      },700);
+      return;
+    }
+    const aiWithoutBill=r.slots.find(s=>s.enabled!==false && !s.claimedBy && !pendingBillsList.some(b=>b.proposerId===s.id) && pendingBillsList.length<6 && Math.random()<0.08);
+    if(aiWithoutBill){
+      automationBusy=true; armAutomationWatchdog();
+      setTimeout(()=>{
+        try{
+          const cats=['fiscal','social','security'].filter(c=>!(r.activeLaws&&r.activeLaws[c]));
+          if(cats.length){
+            const cat=cats.reduce((best,c)=>Math.abs(aiWithoutBill.billStance[c])>Math.abs(aiWithoutBill.billStance[best])?c:best,cats[0]);
+            proposeBill(cat, aiWithoutBill.billStance[cat]>=0?1:-1);
+          }
+        } catch(e){ console.error('AI bill proposal failed:',e); }
+        finally { releaseAutomation(); }
+      },700);
+      return;
+    }
     if(r.currentEvent && r.currentEvent.id==='noconf' && !r.currentEffectResult){
       const votes=r.noConfidenceVotes||{};
       const missingAiVoter=r.coalitionSlots.map(id=>r.slots.find(s=>s.id===id)).find(s=>s&&!s.claimedBy&&votes[s.id]===undefined);
