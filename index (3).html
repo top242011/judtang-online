@@ -474,6 +474,7 @@ PHASE_TEMPLATES.lobby=function(){
   const r=ui.room;
   const mine=mySlot();
   const humanCount=claimedSlots().length;
+  const readyCount=claimedSlots().filter(s=>s.ready).length;
   return `
   <div class="panel-dark" style="text-align:center;">
     <div class="term-badge">ห้องรอผู้เล่น</div>
@@ -483,7 +484,7 @@ PHASE_TEMPLATES.lobby=function(){
   </div>
   <div class="doc">
     <h2>เลือกพรรคของคุณ</h2>
-    <div class="doc-sub">ผู้เล่น ${humanCount} / ${r.slots.length} คน &middot; ที่เหลือจะให้ AI เล่นแทนเมื่อเริ่มเกม</div>
+    <div class="doc-sub">ผู้เล่น ${humanCount} คน &middot; พร้อมแล้ว ${readyCount}/${humanCount} &middot; ที่เหลือจะให้ AI เล่นแทนเมื่อเริ่มเกม</div>
     ${r.slots.map((s,i)=>slotCard(s,i,mine)).join('')}
 
     ${mine?`
@@ -496,10 +497,13 @@ PHASE_TEMPLATES.lobby=function(){
           ${PARTY_TEMPLATES.map(t=>t.color).map(c=>`<button style="background:${c};" class="${mine.color===c?'picked':''}" onclick="updateMySlotField('color','${c}')"></button>`).join('')}
         </div>
       </div>
+      <div class="btn-row left" style="margin-top:14px;">
+        <button class="btn ${mine.ready?'btn-ghost-dark':'btn-stamp'}" onclick="toggleMyReady()">${mine.ready?'ยังไม่พร้อม':'พร้อมแล้ว'}</button>
+      </div>
     </div>` : ''}
 
     <div class="btn-row">
-      ${isHost()?`<button class="btn btn-stamp" ${humanCount<2?'disabled':''} onclick="startGame()">เริ่มเกม (${humanCount} ผู้เล่น)</button>`:`<div class="waiting-box" style="padding:6px;">รอโฮสต์เริ่มเกม...</div>`}
+      ${isHost()?`<button class="btn btn-stamp" ${(humanCount<2||readyCount<humanCount)?'disabled':''} onclick="startGame()">เริ่มเกม (${humanCount} ผู้เล่น)</button>`:`<div class="waiting-box" style="padding:6px;">รอโฮสต์เริ่มเกม...</div>`}
     </div>
   </div>
   `;
@@ -520,12 +524,14 @@ function slotCard(s,i,mine){
   }
   const enabledCount=ui.room.slots.filter(x=>x.enabled).length;
   const canDisable=host && !taken && enabledCount>2;
+  const readyTag=taken?`<span class="tag ${s.ready?'accepted':'pending'}">${s.ready?'พร้อมแล้ว':'ยังไม่พร้อม'}</span>`:'';
   return `<div class="slot-card ${taken?'taken':''}">
     <span class="dot" style="background:${s.color}"></span>
     <div class="info">
       <div class="sname">${s.name}</div>
       <div class="smeta">${taken?('ผู้เล่น: '+(s.playerDisplayName||'ไม่ทราบชื่อ')+(isMine?' (คุณ)':'')):(s.aiLocked?'ล็อคให้ AI เล่นแทน':'ว่าง — จะให้ AI เล่นแทนถ้าไม่มีใครเลือก')}</div>
     </div>
+    ${readyTag}
     ${!taken && !s.aiLocked?`<button class="btn btn-ghost-dark" onclick="claimSlot(${i})">เข้าร่วมพรรคนี้</button>`:''}
     ${taken?(isMine?`<span class="tag human">คุณ</span>`:`<span class="tag human">มีคนแล้ว</span>`):(s.aiLocked?`<span class="tag ai">AI เท่านั้น</span>`:'')}
     ${host && !taken?`<button class="btn btn-ghost-dark" onclick="toggleSlotAiLock(${i})">${s.aiLocked?'ปลดล็อค AI':'ล็อคเป็น AI'}</button>`:''}
@@ -844,7 +850,11 @@ function claimSlot(idx){
   roomRef().update({slots});
 }
 function updateMySlotField(field,val){
-  const slots=ui.room.slots.map(s=>s.claimedBy===MY_ID?{...s,[field]:val}:s);
+  const slots=ui.room.slots.map(s=>s.claimedBy===MY_ID?{...s,[field]:val,ready:false}:s);
+  roomRef().update({slots});
+}
+function toggleMyReady(){
+  const slots=ui.room.slots.map(s=>s.claimedBy===MY_ID?{...s,ready:!s.ready}:s);
   roomRef().update({slots});
 }
 function toggleSlotEnabled(idx){
