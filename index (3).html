@@ -512,7 +512,7 @@ function slotCard(s,i,mine){
   const taken=!!s.claimedBy;
   const isMine=mine&&mine.id===s.id;
   const host=isHost();
-  if(!s.enabled){
+  if(s.enabled===false){
     return `<div class="slot-card" style="opacity:0.45;">
       <span class="dot" style="background:${s.color}"></span>
       <div class="info">
@@ -843,10 +843,11 @@ function leaveRoom(){
 
 function claimSlot(idx){
   const slots=ui.room.slots.map(s=>({...s}));
-  if(!slots[idx].enabled || slots[idx].aiLocked) return;
+  if(slots[idx].enabled===false || slots[idx].aiLocked) return;
   slots.forEach(s=>{ if(s.claimedBy===MY_ID){ s.claimedBy=null; s.playerDisplayName=null; } });
   slots[idx].claimedBy=MY_ID;
   slots[idx].playerDisplayName=ui.nameInput||'ผู้เล่น';
+  slots[idx].ready=false;
   roomRef().update({slots});
 }
 function updateMySlotField(field,val){
@@ -891,7 +892,7 @@ function kickSlot(idx){
   roomRef().update({slots});
 }
 function startGame(){
-  const slots=ui.room.slots.filter(s=>s.enabled).map(s=>({...s,submitted:false,budget:{north:0,isaan:0,central:0,bangkok:0,south:0}}));
+  const slots=ui.room.slots.filter(s=>s.enabled!==false).map(s=>({...s,submitted:false,budget:{north:0,isaan:0,central:0,bangkok:0,south:0}}));
   roomRef().update({phase:'campaign',slots});
 }
 
@@ -1256,7 +1257,7 @@ function resetRoomToLobby(){
   const emptyBudget={north:0,isaan:0,central:0,bangkok:0,south:0};
   const slots=r.slots.map((s,i)=>({
     ...s,
-    policy:{...PARTY_TEMPLATES[i].policy},
+    policy:{...PARTY_TEMPLATES[Number(s.id.slice(1))].policy},
     submitted:false,
     budget:{...emptyBudget},
     ready:false,
