@@ -479,6 +479,32 @@ function gauge(label,value,inverse){
   if(inverse){ cls = value>65?'bad':value>35?'warn':'good'; } else { cls = value<35?'bad':value<65?'warn':'good'; }
   return `<div class="gauge"><div class="gauge-top"><span class="lbl">${label}</span><span class="val">${fmt(value)}</span></div><div class="gauge-bar"><div class="gauge-fill ${cls}" style="width:${value}%"></div></div></div>`;
 }
+function noConfidenceVotingPanel(r,mine,ev){
+  const votes=r.noConfidenceVotes||{};
+  const iAmVoter=mine&&r.coalitionSlots.includes(mine.id);
+  const myVote=mine?votes[mine.id]:undefined;
+  let seatsFor=[0,0];
+  r.coalitionSlots.forEach(id=>{
+    const idx=votes[id];
+    if(idx===undefined) return;
+    const seats=(r.lastElection.results.find(x=>x.id===id)?.seats||0);
+    seatsFor[idx]+=seats;
+  });
+  const rows=r.coalitionSlots.map(id=>{
+    const s=r.slots.find(x=>x.id===id);
+    const idx=votes[id];
+    const label=idx===undefined?'ยังไม่โหวต':ev.choices[idx].label;
+    const cls=idx===undefined?'pending':(idx===0?'accepted':'declined');
+    return `<div class="party-row"><span class="dot" style="background:${s.color}"></span><div class="info"><div class="pname">${s.name}${s.claimedBy?' ('+(s.playerDisplayName||'ไม่ทราบชื่อ')+')':' (AI)'}</div></div><span class="tag ${cls}">${label}</span></div>`;
+  }).join('');
+  return `
+    ${iAmVoter&&myVote===undefined?`
+      ${ev.choices.map((c,i)=>`<button class="event-choice" onclick="castNoConfidenceVote(${i})"><span class="clabel">${c.label}</span><span class="cdesc">${c.desc}</span></button>`).join('')}
+    `:''}
+    <div style="margin-top:14px;">${rows}</div>
+    <div class="majority-line" style="margin-top:10px;">คะแนนเสียงพรรคร่วม: ${ev.choices[0].label} = <strong class="mono">${seatsFor[0]}</strong> ที่นั่ง &middot; ${ev.choices[1].label} = <strong class="mono">${seatsFor[1]}</strong> ที่นั่ง</div>
+  `;
+}
 
 /* ================= PHASE TEMPLATES ================= */
 const PHASE_TEMPLATES={};
@@ -796,9 +822,9 @@ PHASE_TEMPLATES.governing=function(){
         ${result?`
           <div class="result-box">${result.text}<div class="effect-tags">${result.tags.map(t=>`<span class="efftag ${t.sign}">${t.text}</span>`).join('')}</div></div>
           ${isMyTurn?`<div class="btn-row"><button class="btn btn-stamp" onclick="nextTurn()">ดำเนินการต่อ</button></div>`:`<div class="waiting-box">รอ ${ownerSlot.name} ดำเนินการต่อ...</div>`}
-        `:(isMyTurn?`
+        `:(ev.id==='noconf'?noConfidenceVotingPanel(r,mine,ev):(isMyTurn?`
           ${ev.choices.map((c,i)=>`<button class="event-choice" onclick="chooseEvent(${i})"><span class="clabel">${c.label}</span><span class="cdesc">${c.desc}</span></button>`).join('')}
-        `:`<div class="waiting-box">รอ ${ownerSlot.name}${ownerSlot.claimedBy?'':' (AI)'} ตัดสินใจ...</div>`)}
+        `:`<div class="waiting-box">รอ ${ownerSlot.name}${ownerSlot.claimedBy?'':' (AI)'} ตัดสินใจ...</div>`))}
       </div>
     </div>
   </div>
