@@ -507,6 +507,19 @@ PHASE_TEMPLATES.lobby=function(){
 function slotCard(s,i,mine){
   const taken=!!s.claimedBy;
   const isMine=mine&&mine.id===s.id;
+  const host=isHost();
+  if(!s.enabled){
+    return `<div class="slot-card" style="opacity:0.45;">
+      <span class="dot" style="background:${s.color}"></span>
+      <div class="info">
+        <div class="sname">${s.name}</div>
+        <div class="smeta">ปิดใช้งาน</div>
+      </div>
+      ${host?`<button class="btn btn-ghost-dark" onclick="toggleSlotEnabled(${i})">เปิดพรรคนี้</button>`:''}
+    </div>`;
+  }
+  const enabledCount=ui.room.slots.filter(x=>x.enabled).length;
+  const canDisable=host && !taken && enabledCount>2;
   return `<div class="slot-card ${taken?'taken':''}">
     <span class="dot" style="background:${s.color}"></span>
     <div class="info">
@@ -514,6 +527,7 @@ function slotCard(s,i,mine){
       <div class="smeta">${taken?('ผู้เล่น: '+(s.playerDisplayName||'ไม่ทราบชื่อ')+(isMine?' (คุณ)':'')):'ว่าง — จะให้ AI เล่นแทนถ้าไม่มีใครเลือก'}</div>
     </div>
     ${!taken?`<button class="btn btn-ghost-dark" onclick="claimSlot(${i})">เข้าร่วมพรรคนี้</button>`:(isMine?`<span class="tag human">คุณ</span>`:`<span class="tag human">มีคนแล้ว</span>`)}
+    ${host && !taken?`<button class="btn btn-ghost-dark" ${canDisable?'':'disabled'} onclick="toggleSlotEnabled(${i})">ปิดพรรคนี้</button>`:''}
   </div>`;
 }
 
@@ -829,8 +843,22 @@ function updateMySlotField(field,val){
   const slots=ui.room.slots.map(s=>s.claimedBy===MY_ID?{...s,[field]:val}:s);
   roomRef().update({slots});
 }
+function toggleSlotEnabled(idx){
+  if(!isHost()) return;
+  const slots=ui.room.slots.map(s=>({...s}));
+  const target=slots[idx];
+  if(target.claimedBy) return;
+  if(target.enabled){
+    const enabledCount=slots.filter(s=>s.enabled).length;
+    if(enabledCount<=2) return;
+    target.enabled=false;
+  } else {
+    target.enabled=true;
+  }
+  roomRef().update({slots});
+}
 function startGame(){
-  const slots=ui.room.slots.map(s=>({...s,submitted:false,budget:{north:0,isaan:0,central:0,bangkok:0,south:0}}));
+  const slots=ui.room.slots.filter(s=>s.enabled).map(s=>({...s,submitted:false,budget:{north:0,isaan:0,central:0,bangkok:0,south:0}}));
   roomRef().update({phase:'campaign',slots});
 }
 
